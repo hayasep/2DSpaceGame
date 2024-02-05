@@ -2,8 +2,8 @@ import './style.css'
 import Phaser from 'phaser'
 
 const sizes={
-  width:500,
-  height:500
+  width:800,
+  height:600
 }
 
 const speedDown = 300
@@ -19,28 +19,13 @@ class GameScene extends Phaser.Scene{
   }
 
   preload(){
-    this.load.image("bg", "/assets/extended_spacebg_vertical.jpg")
+    this.load.image("bg", "/assets/spacebg_resized.jpg")
     this.load.image("shuttle", "/assets/shuttle.png")
     this.load.image("asteroid", "/assets/asteroid.png");
     this.load.image("missile", "/assets/missile.png");
   }
 
-  createAsteroids() {
-    this.asteroids = this.physics.add.group({
-        key: 'asteroid',
-        repeat: 5, // Number of asteroids
-        setXY: { x: 12, y: 0, stepX: 70 } // Adjust position as needed
-    });
 
-    this.asteroids.children.iterate((asteroid) => {
-        // Randomize velocity for floating effect
-        const xVelocity = Phaser.Math.Between(-50, 50); // Horizontal velocity
-        const yVelocity = Phaser.Math.Between(-50, 50); // Vertical velocity
-        asteroid.setVelocity(xVelocity, yVelocity);
-        asteroid.setCollideWorldBounds(true);
-        asteroid.setBounce(1, 1); // Ensure they bounce off the world bounds
-    });
-}
   create(){
     this.add.image(0,0,"bg").setOrigin(0,0)
     // Create the player sprite
@@ -48,6 +33,8 @@ class GameScene extends Phaser.Scene{
 
     // Set the origin to the center of the sprite
     this.player.setOrigin(0.4, 0.5);
+    // Enable collision with the world bounds
+    this.player.setCollideWorldBounds(true);
 
     // Rotate the sprite to face upwards initially
     this.player.setRotation(-Math.PI / 2);
@@ -74,15 +61,23 @@ class GameScene extends Phaser.Scene{
       defaultKey: 'missile',
   });
 
+  // Schedule asteroids to spawn every 1 second
+    this.time.addEvent({
+    delay: 1000,
+    callback: this.createAsteroid,
+    callbackScope: this,
+    loop: true
+    });
+
   // Shoot with spacebar
   this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     // After creating bullets and asteroids
-  this.physics.add.collider(this.bullets, this.asteroids, (bullet, asteroid) => {
-    bullet.destroy(); // Correctly destroy the bullet
-    asteroid.destroy(); // Correctly destroy the asteroid
-    this.score += 1; // Increment the score
-    this.scoreText.setText('Score: ' + this.score); // Update the score display
+    this.physics.add.collider(this.bullets, this.asteroids, (bullet, asteroid) => {
+      bullet.destroy(); // Correctly destroy the bullet
+      asteroid.destroy(); // Correctly destroy the asteroid
+      this.score += 1; // Increment the score
+      this.scoreText.setText('Score: ' + this.score); // Update the score display
   });
 }
 
@@ -114,6 +109,28 @@ update() {
       this.shootBullet();
   }
 }
+
+
+
+createAsteroid() {
+  const x = Phaser.Math.Between(0, this.sys.game.config.width);
+  const y = -50;
+  // Ensure the asteroid is added to the 'asteroids' group
+  const asteroid = this.asteroids.create(x, y, 'asteroid');
+  if (asteroid) {
+      asteroid.setVelocity(Phaser.Math.Between(-50, 50), Phaser.Math.Between(50, 150));
+      asteroid.setCollideWorldBounds(true);
+      asteroid.setBounce(1, 1);
+  }
+}
+
+createAsteroids() {
+  this.asteroids = this.physics.add.group();
+  for (let i = 0; i < 5; i++) {
+      this.createAsteroid();
+  }
+}
+
 shootBullet() {
   
   const angle = this.player.rotation; // Current rotation of the player in radians
@@ -150,10 +167,10 @@ const config = {
   height:sizes.height,
   canvas:gameCanvas,
   physics:{
-    default:"arcade",
+    default:"arcade",  
     arcade:{
       gravity:{y:0},
-      debug:true
+      debug:false
     }
   },
   scene:[GameScene]
