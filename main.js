@@ -14,13 +14,15 @@ class GameScene extends Phaser.Scene{
     this.player
     this.cursor
     this.playerSpeed=speedDown+50
-
+    this.score = 0; // Initialize score
+    this.scoreText; // For displaying the score
   }
 
   preload(){
     this.load.image("bg", "/assets/extended_spacebg_vertical.jpg")
     this.load.image("shuttle", "/assets/shuttle.png")
     this.load.image("asteroid", "/assets/asteroid.png");
+    this.load.image("missile", "/assets/missile.png");
   }
 
   createAsteroids() {
@@ -46,18 +48,31 @@ class GameScene extends Phaser.Scene{
     this.player.body.allowGravity = false
     this.player.setCollideWorldBounds(true)
 
+    // Display the score
+    this.scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#FFF' });
+
+
     this.cursor=this.input.keyboard.createCursorKeys()
 
     this.createAsteroids();
 
     this.bullets = this.physics.add.group({
-      defaultKey: 'bullet',
-      maxSize: 10 // Limit the number of bullets on screen
+      defaultKey: 'missile',
   });
 
   // Shoot with spacebar
   this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-  }
+
+    // After creating bullets and asteroids
+  this.physics.add.collider(this.bullets, this.asteroids, (bullet, asteroid) => {
+    bullet.destroy(); // Correctly destroy the bullet
+    asteroid.destroy(); // Correctly destroy the asteroid
+    this.score += 1; // Increment the score
+    this.scoreText.setText('Score: ' + this.score); // Update the score display
+  });
+}
+
+  
   update(){
     const { left, right, up, down } = this.cursor;
     if (left.isDown) {
@@ -71,7 +86,33 @@ class GameScene extends Phaser.Scene{
     } else {
       this.player.setVelocity(0);
     }
+      // Shooting
+      if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
+        this.shootBullet();
+    } 
+    
   }
+  shootBullet() {
+    // Create or reuse a missile instead of a generic bullet
+    let missile = this.bullets.create(this.player.x + this.player.width / 2 - 10, this.player.y, 'missile');
+    if (missile) {
+        missile.setActive(true).setVisible(true).setVelocityY(-300);
+
+        // Adjust size, velocity, or other properties as needed
+        missile.setScale(0.5); // Example: Scale down if the sprite is too large
+
+        // Automatically destroy the missile when it goes out of bounds
+        missile.setCollideWorldBounds(true);
+        missile.body.onWorldBounds = true; // Enable world bounds event
+        this.physics.world.on('worldbounds', (body) => {
+            // Check if the body's gameObject is the missile
+            if (body.gameObject === missile) {
+                missile.destroy();
+            }
+        });
+    }
+  }
+
 }
 
 const config = {
