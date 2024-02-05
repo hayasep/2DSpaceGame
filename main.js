@@ -20,7 +20,25 @@ class GameScene extends Phaser.Scene{
   preload(){
     this.load.image("bg", "/assets/extended_spacebg_vertical.jpg")
     this.load.image("shuttle", "/assets/shuttle.png")
+    this.load.image("asteroid", "/assets/asteroid.png");
   }
+
+  createAsteroids() {
+    this.asteroids = this.physics.add.group({
+        key: 'asteroid',
+        repeat: 5, // Number of asteroids
+        setXY: { x: 12, y: 0, stepX: 70 } // Adjust position as needed
+    });
+
+    this.asteroids.children.iterate((asteroid) => {
+        // Randomize velocity for floating effect
+        const xVelocity = Phaser.Math.Between(-50, 50); // Horizontal velocity
+        const yVelocity = Phaser.Math.Between(-50, 50); // Vertical velocity
+        asteroid.setVelocity(xVelocity, yVelocity);
+        asteroid.setCollideWorldBounds(true);
+        asteroid.setBounce(1, 1); // Ensure they bounce off the world bounds
+    });
+}
   create(){
     this.add.image(0,0,"bg").setOrigin(0,0)
     this.player = this.physics.add.image(0,sizes.height-100,"shuttle").setOrigin(0,0)
@@ -29,10 +47,19 @@ class GameScene extends Phaser.Scene{
     this.player.setCollideWorldBounds(true)
 
     this.cursor=this.input.keyboard.createCursorKeys()
+
+    this.createAsteroids();
+
+    this.bullets = this.physics.add.group({
+      defaultKey: 'bullet',
+      maxSize: 10 // Limit the number of bullets on screen
+  });
+
+  // Shoot with spacebar
+  this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
   }
   update(){
     const { left, right, up, down } = this.cursor;
-
     if (left.isDown) {
       this.player.setVelocityX(-this.playerSpeed);
     } else if (right.isDown) {
@@ -55,7 +82,7 @@ const config = {
   physics:{
     default:"arcade",
     arcade:{
-      gravity:{y:speedDown},
+      gravity:{y:0},
       debug:true
     }
   },
