@@ -43,10 +43,24 @@ class GameScene extends Phaser.Scene{
 }
   create(){
     this.add.image(0,0,"bg").setOrigin(0,0)
-    this.player = this.physics.add.image(0,sizes.height-100,"shuttle").setOrigin(0,0)
-    this.player.setImmovable(true)
-    this.player.body.allowGravity = false
-    this.player.setCollideWorldBounds(true)
+    // Create the player sprite
+    this.player = this.physics.add.image(250, 450, 'shuttle');
+
+    // Set the origin to the center of the sprite
+    this.player.setOrigin(0.4, 0.5);
+
+    // Rotate the sprite to face upwards initially
+    this.player.setRotation(-Math.PI / 2);
+
+    // Adjust player dimensions
+    const newWidth = 40; //  width, adjust based on your sprite's dimensions
+    const newHeight = 55; //  height, adjust based on your sprite's dimensions
+    this.player.body.setSize(newWidth, newHeight, false);
+
+    // If you need to adjust the physics body's offset
+    const offsetX = 0; // Adjust as necessary
+    const offsetY = 0; // Adjust as necessary
+    this.player.body.setOffset(offsetX, offsetY);
 
     // Display the score
     this.scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#FFF' });
@@ -73,45 +87,60 @@ class GameScene extends Phaser.Scene{
 }
 
   
-  update(){
-    const { left, right, up, down } = this.cursor;
-    if (left.isDown) {
-      this.player.setVelocityX(-this.playerSpeed);
-    } else if (right.isDown) {
-      this.player.setVelocityX(this.playerSpeed);
-    } else if (up.isDown) {
-      this.player.setVelocityY(-this.playerSpeed);
-    } else if (down.isDown) {
-      this.player.setVelocityY(this.playerSpeed);
-    } else {
-      this.player.setVelocity(0);
-    }
-      // Shooting
-      if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
-        this.shootBullet();
-    } 
-    
-  }
-  shootBullet() {
-    // Create or reuse a missile instead of a generic bullet
-    let missile = this.bullets.create(this.player.x + this.player.width / 2 - 10, this.player.y, 'missile');
-    if (missile) {
-        missile.setActive(true).setVisible(true).setVelocityY(-300);
+update() {
+  this.player.setAngularVelocity(0); // Stop any rotation by default
 
-        // Adjust size, velocity, or other properties as needed
-        missile.setScale(0.5); // Example: Scale down if the sprite is too large
-
-        // Automatically destroy the missile when it goes out of bounds
-        missile.setCollideWorldBounds(true);
-        missile.body.onWorldBounds = true; // Enable world bounds event
-        this.physics.world.on('worldbounds', (body) => {
-            // Check if the body's gameObject is the missile
-            if (body.gameObject === missile) {
-                missile.destroy();
-            }
-        });
-    }
+  // Rotation
+  if (this.cursor.left.isDown) {
+      this.player.setAngularVelocity(-250); // Rotate left
+  } else if (this.cursor.right.isDown) {
+      this.player.setAngularVelocity(250); // Rotate right
   }
+
+  // Forward movement
+  if (this.cursor.up.isDown) {
+      this.physics.velocityFromRotation(this.player.rotation, this.playerSpeed, this.player.body.velocity);
+  } else if (this.cursor.down.isDown) {
+      // Optional: Implement backward movement if desired
+      this.physics.velocityFromRotation(this.player.rotation, -this.playerSpeed / 2, this.player.body.velocity);
+  } else {
+      if (!this.cursor.left.isDown && !this.cursor.right.isDown) {
+          this.player.setVelocity(0); // Stop moving when no input is detected
+      }
+  }
+
+  // Shooting
+  if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
+      this.shootBullet();
+  }
+}
+shootBullet() {
+  
+  const angle = this.player.rotation; // Current rotation of the player in radians
+
+  // Calculate the missile's starting position
+  // Note: You might need to adjust the offset based on the sprite's dimensions and desired launch position
+  const startPosition = this.getMissileStartPosition(this.player.x, this.player.y, angle, this.player.displayWidth / 2);
+
+  // Create or reuse a missile
+  let missile = this.bullets.create(startPosition.x, startPosition.y, 'missile');
+  if (missile) {
+      missile.setActive(true).setVisible(true);
+      
+      // Set missile to move in the direction the player is facing
+      this.physics.velocityFromRotation(angle, 400, missile.body.velocity); // 400 is the missile speed, adjust as needed
+      missile.rotation = angle; // Align missile's direction with player's current rotation
+
+      
+  }
+}
+
+getMissileStartPosition(x, y, rotation, offset) {
+  // Calculate the missile's starting position based on player's position, rotation, and an offset
+  // This offset moves the missile to the front of the player sprite
+  const point = new Phaser.Geom.Point(x + offset * Math.cos(rotation), y + offset * Math.sin(rotation));
+  return point;
+}
 
 }
 
