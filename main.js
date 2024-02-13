@@ -43,11 +43,28 @@ class GameScene extends Phaser.Scene{
     this.load.image("shuttle", "/assets/shuttle.png")
     this.load.image("asteroid", "/assets/asteroid.png");
     this.load.image("missile", "/assets/missile.png");
+    this.load.audio('explosionSound', 'assets/sounds/explosion.wav');
+    this.load.audio('shootSound', 'assets/sounds/lasershoot1.ogg');
+    this.load.image("healthPack", "/assets/healthpack.png");
+    this.load.audio('healSound', 'assets/sounds/heal.mp3');
+    this.load.audio('backgroundMusic', 'assets/sounds/backgroundmusic.mp3');
+
+
+
+
+
   }
 
 
   create(){
-    
+    this.backgroundMusic = this.sound.add('backgroundMusic', { volume: 0.5, loop: true });
+    this.backgroundMusic.play();   
+    // Listen for the shutdown event
+    this.events.on('shutdown', () => {
+      if (this.backgroundMusic && this.backgroundMusic.isPlaying) {
+          this.backgroundMusic.stop();
+      }
+  });
 
     this.add.image(0,0,"bg").setOrigin(0,0);
     // Create the player sprite
@@ -117,7 +134,29 @@ class GameScene extends Phaser.Scene{
       asteroid.destroy(); // Correctly destroy the asteroid
       this.score += 1; // Increment the score
       this.scoreText.setText('Score: ' + this.score); // Update the score display
+        // Play the explosion sound effect
+      this.sound.play('explosionSound');
   });
+
+    // Create a group for health packs
+    this.healthPacks = this.physics.add.group();
+
+    // Setup collision detection for the group
+    this.physics.add.overlap(this.player, this.healthPacks, (player, healthPack) => {
+      this.healPlayer(20); // Adjust the amount as needed
+      healthPack.destroy(); // Remove the health pack after pickup
+      // Play the healing sound effect
+      this.sound.play('healSound');
+   });
+
+    this.time.addEvent({
+      delay: 10000, // 10000 milliseconds = 10 seconds
+      callback: this.createHealthPack,
+      callbackScope: this,
+      loop: true
+  });
+  
+  
 }
 
   
@@ -149,7 +188,20 @@ update() {
   }
 }
 
+healPlayer(amount) {
+  this.playerHealth += amount;
+  this.playerHealth = Phaser.Math.Clamp(this.playerHealth, 0, 100); // Ensure health doesn't exceed 100
+  this.updateHealthBar(); // Assuming you have a method to update the health bar
+}
 
+createHealthPack() {
+  const x = Phaser.Math.Between(0, this.sys.game.config.width);
+  const y = Phaser.Math.Between(0, this.sys.game.config.height);
+  const healthPack = this.healthPacks.create(x, y, 'healthPack');
+
+  healthPack.setInteractive();
+  healthPack.body.setAllowGravity(false); // If needed
+}
 
 updateHealthBar() {
   this.healthBar.clear(); // Clear the old drawing
@@ -222,6 +274,8 @@ shootBullet() {
       // Set missile to move in the direction the player is facing
       this.physics.velocityFromRotation(angle, 400, missile.body.velocity); // 400 is the missile speed, adjust as needed
       missile.rotation = angle; // Align missile's direction with player's current rotation
+      // Play the shooting sound effect
+       this.sound.play('shootSound');
 
       
   }
