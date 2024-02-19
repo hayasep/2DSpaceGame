@@ -28,15 +28,17 @@ class Laser extends Phaser.Physics.Matter.Sprite
         this.setVelocityX(speed * Math.cos(angle));
         this.setVelocityY(speed * Math.sin(angle));
 
-        this.lifespan = 1000; // bullet dissapears after 1000ms
+        this.lifespan = 2000; // bullet dissapears after 1000ms
     }
 
     preUpdate (time, delta)
     {
         super.preUpdate(time, delta);
 
+        // Update lifespan
         this.lifespan -= delta;
 
+        // Remove body when lifespan is reached
         if (this.lifespan <= 0)
         {
             this.setActive(false);
@@ -51,18 +53,19 @@ class Asteroid extends Phaser.Physics.Matter.Sprite
 {
     constructor (world, x, y, bodyOptions)
     {
-        super(world, x, y, 'asteroids', { plugin: bodyOptions });
+        super(world, x, y, 'asteroids', null, { plugin: bodyOptions });
 
+        // this.setCircle(15); // This line prevents Asteroids from wrapping correctly, I can't figure out why
         this.setFrictionAir(0);
 
         this.scene.add.existing(this);
 
         const angle = Phaser.Math.Between(0, 360); // set random angle for asteroids to appear
-        const speed = Phaser.Math.FloatBetween(1, 3); // set random speed
+        const speed = Phaser.Math.FloatBetween(1, 5); // set random speed
 
         this.setAngle(angle);
 
-        this.setAngularVelocity(Phaser.Math.FloatBetween(-0.05, 0.05));
+        this.setAngularVelocity(Phaser.Math.FloatBetween(-0.1, 0.1));
 
         this.setVelocityX(speed * Math.cos(angle));
         this.setVelocityY(speed * Math.sin(angle));
@@ -84,6 +87,8 @@ class Asteroids_Demo extends Phaser.Scene
     asteroidsCollisionCategory;
     spriteCollisionCategory;
     laserCollisionCategory;
+    score = 0;
+    scoreText;
 
 
     // preload game assets
@@ -105,6 +110,8 @@ class Asteroids_Demo extends Phaser.Scene
             }
         };
 
+
+
         this.spriteCollisionCategory = this.matter.world.nextCategory();
         this.laserCollisionCategory = this.matter.world.nextCategory();
         this.asteroidsCollisionCategory = this.matter.world.nextCategory();
@@ -112,20 +119,12 @@ class Asteroids_Demo extends Phaser.Scene
         // load backgrounc and sprite
         this.background = this.add.image(400,300,'space');
         this.sprite = this.matter.add.image(400, 300, 'ship', null, { plugin: wrapBounds });
+        this.scoreText = this.add.text(0, 0, '   Score: 0', { fill: '#00ff00' });
 
 
         // Set movement parameters
         this.sprite.setFrictionAir(0.02);
 
-        // this.lasers = [];
-        // for (let i = 0; i < 50; i++)
-        // {
-        //     const laser = new Laser(this.matter.world, 0, 0, 'laser', wrapBounds);
-        //     laser.setCollisionCategory(this.laserCollisionCategory);
-        //     laser.setCollidesWith([this.asteroidsCollisionCategory]); 
-
-        //     this.lasers.push(laser);
-        // }
 
         this.lasers = [];
 
@@ -135,7 +134,7 @@ class Asteroids_Demo extends Phaser.Scene
 
             laser.setCollisionCategory(this.laserCollisionCategory);
             laser.setCollidesWith([ this.asteroidsCollisionCategory ]);
-
+            laser.setOnCollide(this.laserVsAsteroid);
             this.lasers.push(laser);
         }
 
@@ -144,7 +143,7 @@ class Asteroids_Demo extends Phaser.Scene
 
         // Create asteroids. Upper limit of range is the number of asteroids that will be generated
         this.asteroids = [];
-        for (let i = 0; i < 20; i++)
+        for (let i = 0; i < 10; i++)
         {
             // Set coordinates to random location
             const x = Phaser.Math.Between(0, 800);
@@ -172,9 +171,13 @@ class Asteroids_Demo extends Phaser.Scene
 
         });
 
+
     }
 
-    // update gameplay - runs in continuous loop after "create" finished
+
+
+
+
     update()
     {
         if (this.cursors.left.isDown)
@@ -199,6 +202,53 @@ class Asteroids_Demo extends Phaser.Scene
         {
             this.sprite.thrust(-.0005);
         }
+
+    }
+
+
+    laserVsAsteroid = (collisionData) =>
+    // Remove laser and asteroid on collision, iterate score
+    // Use arrow function to ensure Asteroids_Demo instance is being referenced
+    {
+        const laser = collisionData.bodyA.gameObject;
+        const asteroid = collisionData.bodyB.gameObject;
+
+        // remove laser on collision
+        laser.setActive(false);
+        laser.setVisible(false);
+        laser.world.remove(laser.body, true);
+
+        // remove asteroid on collision
+        asteroid.setActive(false);
+        asteroid.setVisible(false);
+        asteroid.world.remove(asteroid.body, true);
+
+        // Iterate score and update text
+        this.score +=10;
+        if (this.scoreText) {
+        this.scoreText.setText('   Score: ' + this.score); 
+
+
+        // There's probably a better way of doing this, but this will generate a new asteroid each time one is destroyed. Uses the same code from create()
+        const wrapBounds = {
+            wrap: {
+                min: { x: 0, y: 0 },
+                max: { x: 800, y: 600 }
+            }
+        };
+
+        const x = Phaser.Math.Between(0, 800);
+        const y = Phaser.Math.Between(0, 600);
+
+        const asteroid = new Asteroid(this.matter.world, x, y, wrapBounds);
+        // asteroid.setCircle(15);
+        asteroid.setCollisionCategory(this.asteroidsCollisionCategory);
+        asteroid.setCollidesWith([ this.spriteCollisionCategory, this.laserCollisionCategory ]); // Asteroids will ONLY collide with ships or lasers.
+        // Setting this paramater allows asteroids to overlap without bouncing off eachother
+
+        this.asteroids.push(asteroid);
+    }
+
     }
 }
 
@@ -212,7 +262,7 @@ const config = {
     physics: {
         default: 'matter',
         matter: {
-            debug: false,
+            debug: true,
             plugins: {
                 wrap: true
             },
