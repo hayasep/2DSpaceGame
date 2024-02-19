@@ -151,14 +151,15 @@ class GameScene extends Phaser.Scene{
     });
 
     this.physics.add.collider(this.player, this.asteroids, (player, asteroid) => {
-      this.takeDamage(20);
-      asteroid.destroy(); // Optionally destroy the asteroid or handle it differently
+      this.takeDamage(player, 20); // Pass 'player' to indicate which player should take damage
+      asteroid.destroy();
   });
+  
 
-    this.physics.add.collider(this.player2, this.asteroids, (player2, asteroid) => {
-      this.takeDamagePlayer2(20); // Assuming you implement a method to handle damage to player2
-      asteroid.destroy(); // Destroy the asteroid or handle it as needed
-  });
+  this.physics.add.collider(this.player2, this.asteroids, (player2, asteroid) => {
+    this.takeDamage(player2, 20); // Use the same takeDamage method for player2
+    asteroid.destroy(); // Destroy the asteroid
+});
 
   // Shoot with spacebar
   this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -172,6 +173,15 @@ class GameScene extends Phaser.Scene{
         // Play the explosion sound effect
       this.sound.play('explosionSound');
   });
+
+    // Collision detection for bullets hitting players
+    this.physics.add.overlap(this.bullets, [this.player, this.player2], (player, bullet) => {
+    if ((player === this.player && bullet.shooter === 'player2') || (player === this.player2 && bullet.shooter === 'player1')) {
+        bullet.destroy(); // Destroy the bullet
+        this.takeDamage(player, 20); // Assume a takeDamage method that applies damage to the player
+    }
+  });
+
 
     // Create a group for health packs
     this.healthPacks = this.physics.add.group();
@@ -294,8 +304,7 @@ updateHealthBar() {
 updateHealthBarPlayer2() {
   this.healthBarPlayer2.clear();
 
-  // Assuming the health bars are in the top right corner of the screen
-  // and considering the game's width to position player1's health bar
+
   const baseX = this.cameras.main.width - 220; // Position based on the screen width
   const baseY = 20; // Y position starting point for health bars at the top of the screen
   const spacing = 10; // Vertical spacing between health bars
@@ -316,40 +325,26 @@ updateHealthBarPlayer2() {
 
 
 
-takeDamage(amount) {
-  this.playerHealth -= amount;
-  this.playerHealth = Math.max(0, this.playerHealth);
-  this.updateHealthBar();
-
-  if (this.playerHealth <= 0) {
-      console.log("Player has died");
-      this.physics.pause(); // Stop physics but keep the scene active for input
-
-      // Display "Game Over" text
-      this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 100, 'Game Over', { fontSize: '64px', fill: '#ff0000' }).setOrigin(0.5);
-
-      // Add "Back to Main Menu" text
-      let backToMenuText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'Back to Main Menu', { fontSize: '32px', fill: '#ffffff' }).setOrigin(0.5);
-
-      // Make "Back to Main Menu" interactive
-      backToMenuText.setInteractive({ useHandCursor: true });
-      backToMenuText.on('pointerdown', () => {
-          this.scene.stop('GameScene'); // Optionally clear the current game scene
-          this.scene.start('MainMenuScene'); // Go back to the MainMenuScene
-      });
+takeDamage(player, amount) {
+  // Apply damage to the appropriate player
+  if (player === this.player) {
+      this.playerHealth -= amount;
+      this.updateHealthBar(); // Update player1's health bar
+      if (this.playerHealth <= 0) {
+          console.log("Player 1 has been defeated!");
+          this.playerDefeated('Player 1');
+      }
+  } else if (player === this.player2) {
+      this.player2Health -= amount;
+      this.updateHealthBarPlayer2(); // Update player2's health bar
+      if (this.player2Health <= 0) {
+          console.log("Player 2 has been defeated!");
+          this.playerDefeated('Player 2');
+      }
   }
 }
 
-takeDamagePlayer2(amount) {
-  this.player2Health -= amount;
-  this.player2Health = Phaser.Math.Clamp(this.player2Health, 0, 100); // Clamp the health value to ensure it stays within bounds
-  this.updateHealthBarPlayer2(); // Update player2's health bar
 
-  if (this.player2Health <= 0) {
-      // Handle player2's defeat (e.g., end game, respawn, etc.)
-      console.log("Player 2 has been defeated!");
-  }
-}
 
 createAsteroid() {
   const x = Phaser.Math.Between(0, this.sys.game.config.width);
@@ -371,16 +366,42 @@ createAsteroids() {
 }
 
 shootBullet(player) {
-  const angle = player.rotation; // Use the passed player's rotation
-  const startPosition = this.getMissileStartPosition(player.x, player.y, angle, player.displayWidth / 2);
-  let missile = this.bullets.create(startPosition.x, startPosition.y, 'missile');
-  if (missile) {
-      missile.setActive(true).setVisible(true);
-      this.physics.velocityFromRotation(angle, 400, missile.body.velocity);
-      missile.rotation = angle;
-      this.sound.play('shootSound');
-  }
+    const angle = player.rotation;
+    const startPosition = this.getMissileStartPosition(player.x, player.y, angle, player.displayWidth / 2);
+    let missile = this.bullets.create(startPosition.x, startPosition.y, 'missile');
+    if (missile) {
+        missile.setActive(true).setVisible(true);
+        this.physics.velocityFromRotation(angle, 400, missile.body.velocity);
+        missile.rotation = angle;
+        missile.shooter = player === this.player ? 'player1' : 'player2'; // Identify the shooter
+        this.sound.play('shootSound');
+    }
 }
+
+playerDefeated(defeatedPlayer) {
+  // Stop the game or any game-specific logic
+  this.physics.pause();
+  this.bullets.clear(true, true); // Clear existing bullets
+  this.asteroids.clear(true, true); // Assuming you want to clear existing asteroids
+
+  // Display a defeat message
+  let message = defeatedPlayer + " has been defeated!";
+  let gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 100, message, { fontSize: '32px', fill: '#ff0000' }).setOrigin(0.5);
+
+
+  let restartText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'Restart', { fontSize: '24px', fill: '#fff' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+  restartText.on('pointerdown', () => {
+      this.scene.restart(); // Restart this scene
+  });
+
+  let backToMenuText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY + 50, 'Back to Main Menu', { fontSize: '24px', fill: '#fff' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+  backToMenuText.on('pointerdown', () => {
+      this.scene.start('MainMenuScene'); // Go back to the MainMenuScene
+  });
+}
+
 
 
 getMissileStartPosition(x, y, rotation, offset) {
