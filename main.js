@@ -2,8 +2,8 @@ import './style.css'
 import Phaser from 'phaser'
 
 const sizes={
-  width:800,
-  height:600
+  width:1200,
+  height:900
 }
 
 const speedDown = 300
@@ -48,6 +48,7 @@ class GameScene extends Phaser.Scene{
     this.load.image("healthPack", "/assets/healthpack.png");
     this.load.audio('healSound', 'assets/sounds/heal.mp3');
     this.load.audio('backgroundMusic', 'assets/sounds/backgroundmusic.mp3');
+    this.load.image("shuttle2", "/assets/shuttle2.png")
 
 
 
@@ -83,17 +84,46 @@ class GameScene extends Phaser.Scene{
     const newHeight = 55; //  height, adjust based on your sprite's dimensions
     this.player.body.setSize(newWidth, newHeight, false);
 
+    
+    this.player2 = this.physics.add.image(850, 450, 'shuttle2'); // Adjust position for player 2
+    this.player2.setOrigin(0.5, 0.5);
+    this.player2.setCollideWorldBounds(true);
+    this.player2.body.setSize(newWidth, newHeight, false);
+    this.player2.setRotation(-Math.PI / 2);
+    // You may want to adjust the size or the physics properties as you did with the first player
+    // Rotate the sprite to face upwards initially
+    this.keys2 = {
+      up: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+      left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+      down: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+      right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      shoot: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F) // Assuming F is for shooting
+    };
+   
+
+
     // Correct placement: Initialize healthBar Graphics object before updating it
     this.healthBar = this.add.graphics();
 
     //reset player health and update the health bar
     this.playerHealth = 100;
-    this.updateHealthBar(); // This should now work without causing a blank screen
+    this.updateHealthBar(); 
+
+    this.player2Health = 100; // Starting health for player2
+    this.healthBarPlayer2 = this.add.graphics();
+    this.updateHealthBarPlayer2();
 
     // If you need to adjust the physics body's offset
     const offsetX = 0; // Adjust as necessary
     const offsetY = 0; // Adjust as necessary
     this.player.body.setOffset(offsetX, offsetY);
+
+
+    // For Player 1's HP Label
+    this.labelPlayer1HP = this.add.text(this.cameras.main.width - 220, 2, "Player 1's HP", { fontSize: '16px', fill: '#FFFFFF' });
+
+    // For Player 2's HP Label, placed below Player 1's health bar
+    this.labelPlayer2HP = this.add.text(this.cameras.main.width - 220, 31, "Player 2's HP", { fontSize: '16px', fill: '#FFFFFF' });
 
     // Display the score
     this.scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#FFF' });
@@ -125,6 +155,11 @@ class GameScene extends Phaser.Scene{
       asteroid.destroy(); // Optionally destroy the asteroid or handle it differently
   });
 
+    this.physics.add.collider(this.player2, this.asteroids, (player2, asteroid) => {
+      this.takeDamagePlayer2(20); // Assuming you implement a method to handle damage to player2
+      asteroid.destroy(); // Destroy the asteroid or handle it as needed
+  });
+
   // Shoot with spacebar
   this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
@@ -148,6 +183,13 @@ class GameScene extends Phaser.Scene{
       // Play the healing sound effect
       this.sound.play('healSound');
    });
+
+   this.physics.add.overlap(this.player2, this.healthPacks, (player2, healthPack) => {
+    this.healPlayer2(20); // Implement this method to handle healing player2
+    healthPack.destroy(); // Remove the health pack from the game
+    this.sound.play('healSound');
+    
+  });
 
     this.time.addEvent({
       delay: 10000, // 10000 milliseconds = 10 seconds
@@ -183,15 +225,49 @@ update() {
   }
 
   // Shooting
-  if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
-      this.shootBullet();
+
+if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
+  this.shootBullet(this.player); // Pass this.player as the argument
+}
+
+
+// Player 2 rotation and movement
+if (this.keys2.left.isDown) {
+  this.player2.setAngularVelocity(-250);
+} else if (this.keys2.right.isDown) {
+  this.player2.setAngularVelocity(250);
+} else {
+  this.player2.setAngularVelocity(0);
+}
+
+if (this.keys2.up.isDown) {
+  this.physics.velocityFromRotation(this.player2.rotation, this.playerSpeed, this.player2.body.velocity);
+} else if (this.keys2.down.isDown) {
+  this.physics.velocityFromRotation(this.player2.rotation, -this.playerSpeed / 2, this.player2.body.velocity);
+} else {
+  if (!this.keys2.left.isDown && !this.keys2.right.isDown) {
+      this.player2.setVelocity(0);
   }
+}
+
+// Shooting for player 2
+if (Phaser.Input.Keyboard.JustDown(this.keys2.shoot)) {
+  this.shootBullet(this.player2);
+}
+
+
 }
 
 healPlayer(amount) {
   this.playerHealth += amount;
   this.playerHealth = Phaser.Math.Clamp(this.playerHealth, 0, 100); // Ensure health doesn't exceed 100
   this.updateHealthBar(); // Assuming you have a method to update the health bar
+}
+
+healPlayer2(amount) {
+  this.player2Health += amount;
+  this.player2Health = Phaser.Math.Clamp(this.player2Health, 0, 100); // Ensure health doesn't exceed 100
+  this.updateHealthBarPlayer2(); // Update the health bar for player2
 }
 
 createHealthPack() {
@@ -214,6 +290,31 @@ updateHealthBar() {
   // Draw the health bar
   this.healthBar.fillRect(this.cameras.main.width - 220, 16, healthBarWidth, 16);
 }
+
+updateHealthBarPlayer2() {
+  this.healthBarPlayer2.clear();
+
+  // Assuming the health bars are in the top right corner of the screen
+  // and considering the game's width to position player1's health bar
+  const baseX = this.cameras.main.width - 220; // Position based on the screen width
+  const baseY = 20; // Y position starting point for health bars at the top of the screen
+  const spacing = 10; // Vertical spacing between health bars
+  const healthBarHeight = 16; // The height of the health bar
+
+  // Calculate Y position for player2's health bar to be below player1's
+  const player2HealthBarY = baseY + healthBarHeight + spacing;
+
+  // Draw the background for player2's health bar
+  this.healthBarPlayer2.fillStyle(0x000000); // Black color for the background
+  this.healthBarPlayer2.fillRect(baseX, player2HealthBarY, 200, healthBarHeight);
+
+  // Draw the health fill for player2's health bar
+  this.healthBarPlayer2.fillStyle(0x00ff00); // Green color for the health
+  const fillWidth = Phaser.Math.Clamp(this.player2Health, 0, 100) * 2; // Convert health to fill width
+  this.healthBarPlayer2.fillRect(baseX, player2HealthBarY, fillWidth, healthBarHeight);
+}
+
+
 
 takeDamage(amount) {
   this.playerHealth -= amount;
@@ -239,6 +340,17 @@ takeDamage(amount) {
   }
 }
 
+takeDamagePlayer2(amount) {
+  this.player2Health -= amount;
+  this.player2Health = Phaser.Math.Clamp(this.player2Health, 0, 100); // Clamp the health value to ensure it stays within bounds
+  this.updateHealthBarPlayer2(); // Update player2's health bar
+
+  if (this.player2Health <= 0) {
+      // Handle player2's defeat (e.g., end game, respawn, etc.)
+      console.log("Player 2 has been defeated!");
+  }
+}
+
 createAsteroid() {
   const x = Phaser.Math.Between(0, this.sys.game.config.width);
   const y = -50;
@@ -258,28 +370,18 @@ createAsteroids() {
   }
 }
 
-shootBullet() {
-  
-  const angle = this.player.rotation; // Current rotation of the player in radians
-
-  // Calculate the missile's starting position
-  // Note: You might need to adjust the offset based on the sprite's dimensions and desired launch position
-  const startPosition = this.getMissileStartPosition(this.player.x, this.player.y, angle, this.player.displayWidth / 2);
-
-  // Create or reuse a missile
+shootBullet(player) {
+  const angle = player.rotation; // Use the passed player's rotation
+  const startPosition = this.getMissileStartPosition(player.x, player.y, angle, player.displayWidth / 2);
   let missile = this.bullets.create(startPosition.x, startPosition.y, 'missile');
   if (missile) {
       missile.setActive(true).setVisible(true);
-      
-      // Set missile to move in the direction the player is facing
-      this.physics.velocityFromRotation(angle, 400, missile.body.velocity); // 400 is the missile speed, adjust as needed
-      missile.rotation = angle; // Align missile's direction with player's current rotation
-      // Play the shooting sound effect
-       this.sound.play('shootSound');
-
-      
+      this.physics.velocityFromRotation(angle, 400, missile.body.velocity);
+      missile.rotation = angle;
+      this.sound.play('shootSound');
   }
 }
+
 
 getMissileStartPosition(x, y, rotation, offset) {
   // Calculate the missile's starting position based on player's position, rotation, and an offset
