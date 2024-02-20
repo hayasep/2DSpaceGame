@@ -28,7 +28,7 @@ class Laser extends Phaser.Physics.Matter.Sprite
         this.setVelocityX(speed * Math.cos(angle));
         this.setVelocityY(speed * Math.sin(angle));
 
-        this.lifespan = 2000; // bullet dissapears after 1000ms
+        this.lifespan = 1000; // bullet dissapears after 1000ms
     }
 
     preUpdate (time, delta)
@@ -61,11 +61,11 @@ class Asteroid extends Phaser.Physics.Matter.Sprite
         this.scene.add.existing(this);
 
         const angle = Phaser.Math.Between(0, 360); // set random angle for asteroids to appear
-        const speed = Phaser.Math.FloatBetween(1, 5); // set random speed
+        const speed = Phaser.Math.FloatBetween(1, 2); // set random speed
 
         this.setAngle(angle);
 
-        this.setAngularVelocity(Phaser.Math.FloatBetween(-0.1, 0.1));
+        this.setAngularVelocity(Phaser.Math.FloatBetween(-0.01, 0.01));
 
         this.setVelocityX(speed * Math.cos(angle));
         this.setVelocityY(speed * Math.sin(angle));
@@ -143,7 +143,7 @@ class Asteroids_Demo extends Phaser.Scene
 
         // Create asteroids. Upper limit of range is the number of asteroids that will be generated
         this.asteroids = [];
-        for (let i = 0; i < 10; i++)
+        for (let i = 0; i < 7; i++)
         {
             // Set coordinates to random location
             const x = Phaser.Math.Between(0, 800);
@@ -182,11 +182,11 @@ class Asteroids_Demo extends Phaser.Scene
     {
         if (this.cursors.left.isDown)
         {
-            this.sprite.setAngularVelocity(-0.15);
+            this.sprite.setAngularVelocity(-0.05);
         }
         else if (this.cursors.right.isDown)
         {
-            this.sprite.setAngularVelocity(0.15);
+            this.sprite.setAngularVelocity(0.05);
         }
         else
         {
@@ -195,12 +195,12 @@ class Asteroids_Demo extends Phaser.Scene
 
         if (this.cursors.up.isDown)
         {
-            this.sprite.thrust(0.001);
+            this.sprite.thrust(0.00025);
         }
 
         else if (this.cursors.down.isDown)
         {
-            this.sprite.thrust(-.0005);
+            this.sprite.thrust(-.0000125);
         }
 
     }
@@ -262,7 +262,7 @@ const config = {
     physics: {
         default: 'matter',
         matter: {
-            debug: true,
+            debug: false,
             plugins: {
                 wrap: true
             },
