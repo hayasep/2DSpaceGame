@@ -12,6 +12,7 @@
     "vite": "^5.0.8"
   },
   "dependencies": {
+    "http-server": "^14.1.1",
     "phaser": "^3.70.0"
   }
 }

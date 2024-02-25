@@ -1,5 +1,5 @@
-import './style.css'
-import Phaser from 'phaser'
+// import './style.css'
+// import Phaser from 'phaser'
 
 const sizes={
   width:1200,
@@ -414,10 +414,11 @@ getMissileStartPosition(x, y, rotation, offset) {
 }
 
 const config = {
-  type:Phaser.WEBGL,
+  type:Phaser.AUTO,
   width:sizes.width,
   height:sizes.height,
-  canvas:gameCanvas,
+  parent: 'phaser-asteroids',
+  // canvas:gameCanvas,
   physics:{
     default:"arcade",  
     arcade:{
