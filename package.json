@@ -1,18 +1,24 @@
 {
-  "name": "game",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "name": "2dspacegame",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "start": "nodemon server.js"
   },
-  "devDependencies": {
-    "vite": "^5.0.8"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hayasep/2DSpaceGame.git"
   },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hayasep/2DSpaceGame/issues"
+  },
+  "homepage": "https://github.com/hayasep/2DSpaceGame#readme",
   "dependencies": {
-    "http-server": "^14.1.1",
-    "phaser": "^3.70.0"
+    "express": "^4.18.2",
+    "nodemon": "^3.1.0",
+    "socket.io": "^4.7.4"
   }
 }
