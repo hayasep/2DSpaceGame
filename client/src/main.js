@@ -4,10 +4,32 @@ import io from 'socket.io-client';
 
 const sizes={
   width:1200,
-  height:900
+  height:900,
 }
 
 const speedDown = 300
+
+const transportOptions = ['websocket', 'polling', 'flashsocket']; // Will get 'Access-Control-Allow-Origin' error if this is not included
+const socket = io('http://localhost:3000', {transports: transportOptions});
+const isPlayer1 = false;
+const isPlayer2 = false;
+
+
+socket.on('connect', function(){
+  console.log('Connected to server')
+})
+
+// Establish Player 1 if client is first to connect to server
+socket.on('isPlayer1', function (){
+  self.isPlayer1 = true;
+  console.log('Player 1 has joined')
+})
+
+// Establish Player 2 if client is second to connect to server
+socket.on('isPlayer2', function (){
+  self.isPlayer2 = true;
+  console.log('Player 2 has joined')
+})
 
 class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -15,32 +37,6 @@ class MainMenuScene extends Phaser.Scene {
   }
 
   create() {
-
-    this.isPlayer1 = false;
-    this.isPlayer2 = false;
-
-    // Connect to server
-    var transportOptions = ['websocket', 'polling', 'flashsocket']; // Will get 'Access-Control-Allow-Origin' error if this is not included
-    this.socket = io('http://localhost:3000', {transports: transportOptions});
-    
-    // Log connection
-    this.socket.on('connect', function(){
-      console.log('Connected to server')
-    })
-
-    // Establish Player 1 if client is first to connect to server
-    this.socket.on('isPlayer1', function (){
-      self.isPlayer1 = true;
-      console.log('You are Player 1')
-    })
-
-    // Establish Player 2 if client is second to connect to server
-    this.socket.on('isPlayer2', function (){
-      self.isPlayer2 = true;
-      console.log('You are Player 2')
-    })
-
-
 
 
 
@@ -89,6 +85,19 @@ class GameScene extends Phaser.Scene{
 
 
   create(){
+    
+    socket.on('currentPlayers', function (players) {
+      Object.keys(players).forEach(function (id) {
+        if (players[id].playerId === self.socket.id) {
+          addPlayer(self, players[id]);
+        }
+      });
+    });
+      
+        
+
+
+
     this.backgroundMusic = this.sound.add('backgroundMusic', { volume: 0.5, loop: true });
     this.backgroundMusic.play();   
     // Listen for the shutdown event
@@ -238,12 +247,32 @@ class GameScene extends Phaser.Scene{
       callbackScope: this,
       loop: true
   });
+
+
+  // socket.on('player1Moved', function (movementData) {
+  //   this.player.setRotation(movementData.p1R)
+  //   this.player.x(movementData.p1X)
+  //   this.player.y(movementData.p1Y)
+  // });
+  
+
+  // this.socket.on('player1Moved', function (playerInfo) {
+  //   self.otherPlayers.getChildren().forEach(function (otherPlayer) {
+  //     if (playerInfo.playerId === otherPlayer.playerId) {
+  //       otherPlayer.setRotation(playerInfo.rotation);
+  //       otherPlayer.setPosition(playerInfo.x, playerInfo.y);
+  //     }
+  //   });
+  // });
   
   
 }
 
   
 update() {
+  
+  //Player 1 controls 
+  
   this.player.setAngularVelocity(0); // Stop any rotation by default
 
   // Rotation
@@ -265,6 +294,24 @@ update() {
       }
   }
 
+  // var p1X = this.player.x;
+  // var p1Y = this.player.y;
+  // var p1R = this.player.rotation;
+  // if (this.player.oldPosition && (p1X !== this.player.oldPosition.X || p1Y !== this.player.oldPosition.Y || p1R !== this.player.oldPosition.rotation)) {
+  //   this.socket.emit('player1Movement', { p1X: this.player.x, p1Y: this.player.y, p1R: this.player.rotation });
+  // }
+
+  // save old position data
+  this.player.oldPosition = {
+  x: this.player.x,
+  y: this.player.y,
+  rotation: this.player.rotation
+};
+
+
+
+
+  
   // Shooting
 
 if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
@@ -443,6 +490,7 @@ getMissileStartPosition(x, y, rotation, offset) {
 }
 
 }
+
 
 const config = {
   type:Phaser.AUTO,

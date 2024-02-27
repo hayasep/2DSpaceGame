@@ -20,12 +20,14 @@ io.on('connection', function (socket){
     // Add socket id to players list
     players.push(socket.id);
 
+    var index = players.indexOf(socket.id)
+
     // If player is first to connect, establish them as player 1
-    if (players.length === 1) {
+    if (index === 0) {
         io.emit('isPlayer1')
     }
     // If player is second to connect, establish them as player 2
-    else if (players.length === 2) {
+    else if (index === 1) {
         io.emit('isPlayer2')
     }
     
@@ -35,6 +37,17 @@ io.on('connection', function (socket){
         console.log('User disconnected: ' + socket.id);
         players = players.filter(player => player !== socket.id); // Remove socket id from players list
     })
+
+    // socket.on('player1Movement', function (movementData) {
+    //     // players[socket.id].x = movementData.p1X;
+    //     // players[socket.id].y = movementData.p1Y;
+    //     // players[socket.id].rotation = movementData.p1R;
+    //     // emit a message to all players about the player that moved
+    //     socket.broadcast.emit('player1Moved', movementData);
+    //   });
+
+
+
 });
 
 // Log server has started
