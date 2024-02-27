@@ -16,8 +16,33 @@ class MainMenuScene extends Phaser.Scene {
 
   create() {
 
-    var transportOptions = ['websocket', 'polling', 'flashsocket'];
+    this.isPlayer1 = false;
+    this.isPlayer2 = false;
+
+    // Connect to server
+    var transportOptions = ['websocket', 'polling', 'flashsocket']; // Will get 'Access-Control-Allow-Origin' error if this is not included
     this.socket = io('http://localhost:3000', {transports: transportOptions});
+    
+    // Log connection
+    this.socket.on('connect', function(){
+      console.log('Connected to server')
+    })
+
+    // Establish Player 1 if client is first to connect to server
+    this.socket.on('isPlayer1', function (){
+      self.isPlayer1 = true;
+      console.log('You are Player 1')
+    })
+
+    // Establish Player 2 if client is second to connect to server
+    this.socket.on('isPlayer2', function (){
+      self.isPlayer2 = true;
+      console.log('You are Player 2')
+    })
+
+
+
+
 
       // Add menu text
       let titleText = this.add.text(this.cameras.main.centerX, 150, 'HTML 5 Multiplayer 2D Space Arcade Game', { fontSize: '32px', fill: '#fff' }).setOrigin(0.5);
