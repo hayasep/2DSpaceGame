@@ -38,6 +38,8 @@ class GameScene extends Phaser.Scene{
     this.playerHealth = 100; // Starting health
   }
 
+
+
   preload(){
     this.load.image("bg", "/assets/spacebg_resized.jpg")
     this.load.image("shuttle", "/assets/shuttle.png")
@@ -48,7 +50,10 @@ class GameScene extends Phaser.Scene{
     this.load.image("healthPack", "/assets/healthpack.png");
     this.load.audio('healSound', 'assets/sounds/heal.mp3');
     this.load.audio('backgroundMusic', 'assets/sounds/backgroundmusic.mp3');
-    this.load.image("shuttle2", "/assets/shuttle2.png")
+    this.load.image("shuttle2", "/assets/shuttle2.png");
+    this.load.image('tripleShotIcon', '/assets/upgrade.png');
+    this.load.image('spaceMonster', '/assets/spacemonster.png');
+    this.load.image('monsterMissile', '/assets/spacemonstermissile.png');
 
 
 
@@ -208,6 +213,34 @@ class GameScene extends Phaser.Scene{
       loop: true
   });
   
+  this.powerUps = this.physics.add.group();
+
+   // Collision detection for player and triple shot upgrade
+    this.physics.add.overlap(this.player, this.powerUps, (player, powerUp) => {
+    powerUp.destroy(); // Remove the power-up from the game
+    this.enableTripleShot(player); // Enable triple shot for the player
+});
+
+this.physics.add.overlap(this.player2, this.powerUps, (player2, powerUp) => {
+  powerUp.destroy(); // Remove the power-up from the game
+  this.enableTripleShot(player2); // Enable triple shot for the player
+});
+    // Start a timed event for spawning the triple shot upgrade
+    this.time.addEvent({
+      delay: 15000, // 15000 ms = 15 seconds
+      callback: this.spawnTripleShotUpgrade,
+      callbackScope: this,
+      loop: true
+  });
+
+  
+    //spawning monster
+  this.time.addEvent({
+    delay: 15000, // 15000 ms = 15seconds
+    callback: this.createSpaceMonster,
+    callbackScope: this,
+    loop: false, // No loop, spawn once
+});
   
 }
 
@@ -265,6 +298,13 @@ if (Phaser.Input.Keyboard.JustDown(this.keys2.shoot)) {
   this.shootBullet(this.player2);
 }
 
+this.physics.add.overlap(this.bullets, this.spaceMonster, (monster, bullet) => {
+  bullet.destroy(); // Destroy the bullet
+  monster.hp -= 10; // Assume each hit reduces 10 HP
+  if (monster.hp <= 0) {
+      monster.destroy(); // Destroy the monster
+  }
+});
 
 }
 
@@ -365,17 +405,35 @@ createAsteroids() {
   }
 }
 
+enableTripleShot(player) {
+  player.tripleShotActive = true;
+  this.time.delayedCall(10000, () => { // Triple shot lasts for 10 seconds
+      player.tripleShotActive = false;
+  }, [], this);
+}
+
 shootBullet(player) {
-    const angle = player.rotation;
-    const startPosition = this.getMissileStartPosition(player.x, player.y, angle, player.displayWidth / 2);
-    let missile = this.bullets.create(startPosition.x, startPosition.y, 'missile');
-    if (missile) {
-        missile.setActive(true).setVisible(true);
-        this.physics.velocityFromRotation(angle, 400, missile.body.velocity);
-        missile.rotation = angle;
-        missile.shooter = player === this.player ? 'player1' : 'player2'; // Identify the shooter
-        this.sound.play('shootSound');
-    }
+  const angle = player.rotation;
+  if (player.tripleShotActive) {
+      for (let i = -1; i <= 1; i++) {
+          const spreadAngle = angle + i * 0.1; // Adjust the angle for the spread
+          this.createBullet(player, spreadAngle);
+      }
+  } else {
+      this.createBullet(player, angle);
+  }
+}
+
+createBullet(player, angle) {
+  const startPosition = this.getMissileStartPosition(player.x, player.y, angle, player.displayWidth / 2);
+  let missile = this.bullets.create(startPosition.x, startPosition.y, 'missile');
+  if (missile) {
+      missile.setActive(true).setVisible(true);
+      this.physics.velocityFromRotation(angle, 400, missile.body.velocity);
+      missile.rotation = angle;
+      missile.shooter = player === this.player ? 'player1' : 'player2'; // Identify the shooter
+      this.sound.play('shootSound');
+  }
 }
 
 playerDefeated(defeatedPlayer) {
@@ -410,6 +468,35 @@ getMissileStartPosition(x, y, rotation, offset) {
   const point = new Phaser.Geom.Point(x + offset * Math.cos(rotation), y + offset * Math.sin(rotation));
   return point;
 }
+
+spawnTripleShotUpgrade() {
+  const x = Phaser.Math.Between(0, this.sys.game.config.width);
+  const y = Phaser.Math.Between(0, this.sys.game.config.height);
+  const tripleShotUpgrade = this.powerUps.create(x, y, 'tripleShotIcon'); // Ensure you have 'tripleShotIcon' asset loaded
+  tripleShotUpgrade.setInteractive();
+  tripleShotUpgrade.body.setAllowGravity(false);
+}
+
+createSpaceMonster() {
+  this.spaceMonster = this.physics.add.sprite(this.sys.game.config.width / 2, 100, 'spaceMonster');
+  this.spaceMonster.hp = 150;
+  this.spaceMonster.setCollideWorldBounds(true);
+
+  // Shoot missiles in random directions
+  this.time.addEvent({
+      delay: 2000, // Shoot every 2 seconds
+      callback: () => this.shootMonsterMissile(),
+      callbackScope: this,
+      loop: true,
+  });
+}
+
+shootMonsterMissile() {
+  let missile = this.physics.add.sprite(this.spaceMonster.x, this.spaceMonster.y, 'monsterMissile');
+  let angle = Phaser.Math.Between(0, 360);
+  this.physics.velocityFromAngle(angle, 200, missile.body.velocity); // Adjust speed as needed
+}
+
 
 }
 
