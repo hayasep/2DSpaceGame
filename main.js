@@ -227,7 +227,7 @@ this.physics.add.overlap(this.player2, this.powerUps, (player2, powerUp) => {
 });
     // Start a timed event for spawning the triple shot upgrade
     this.time.addEvent({
-      delay: 15000, // 15000 ms = 15 seconds
+      delay: 7000, // 15000 ms = 15 seconds
       callback: this.spawnTripleShotUpgrade,
       callbackScope: this,
       loop: true
