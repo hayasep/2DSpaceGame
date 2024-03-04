@@ -10,26 +10,32 @@ const sizes={
 const speedDown = 300
 
 const transportOptions = ['websocket', 'polling', 'flashsocket']; // Will get 'Access-Control-Allow-Origin' error if this is not included
-const socket = io('http://localhost:3000', {transports: transportOptions});
-const isPlayer1 = false;
-const isPlayer2 = false;
+// const socket = io('http://localhost:3000', {transports: transportOptions});
+
+const newWidth = 40; //  width, adjust based on your sprite's dimensions
+const newHeight = 55; //  height, adjust based on your sprite's dimensions
+const offsetX = 0; // Adjust as necessary
+const offsetY = 0; // Adjust as necessary
+
+// const isPlayer1 = false;
+// const isPlayer2 = false;
 
 
-socket.on('connect', function(){
-  console.log('Connected to server')
-})
+// socket.on('connect', function(){
+//   console.log('Connected to server')
+// })
 
-// Establish Player 1 if client is first to connect to server
-socket.on('isPlayer1', function (){
-  self.isPlayer1 = true;
-  console.log('Player 1 has joined')
-})
+// // Establish Player 1 if client is first to connect to server
+// socket.on('isPlayer1', function (){
+//   self.isPlayer1 = true;
+//   console.log('Player 1 has joined')
+// })
 
-// Establish Player 2 if client is second to connect to server
-socket.on('isPlayer2', function (){
-  self.isPlayer2 = true;
-  console.log('Player 2 has joined')
-})
+// // Establish Player 2 if client is second to connect to server
+// socket.on('isPlayer2', function (){
+//   self.isPlayer2 = true;
+//   console.log('Player 2 has joined')
+// })
 
 class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -37,6 +43,14 @@ class MainMenuScene extends Phaser.Scene {
   }
 
   create() {
+
+    // socket.on('currentPlayers', function (players) {
+    //   Object.keys(players).forEach(function (id) {
+    //     if (players[id].playerId === self.socket.id) {
+    //       addPlayer(self,players[id]);
+    //     }
+    //   });
+    // });
 
 
 
@@ -63,6 +77,7 @@ class GameScene extends Phaser.Scene{
     this.score = 0; // Initialize score
     this.scoreText; // For displaying the score
     this.playerHealth = 100; // Starting health
+
   }
 
   preload(){
@@ -76,25 +91,36 @@ class GameScene extends Phaser.Scene{
     this.load.audio('healSound', 'assets/sounds/heal.mp3');
     this.load.audio('backgroundMusic', 'assets/sounds/backgroundmusic.mp3');
     this.load.image("shuttle2", "/assets/shuttle2.png")
-
-
-
-
-
   }
 
 
   create(){
-    
-    socket.on('currentPlayers', function (players) {
+    var self = this;
+    this.socket = io('http://localhost:3000', {transports: transportOptions});
+    this.opponent = this.physics.add.group()
+    this.socket.on('currentPlayers', function (players) {
+      // console.log('Creating player');
+      // var index = players.indexOf(socket.id);
       Object.keys(players).forEach(function (id) {
         if (players[id].playerId === self.socket.id) {
-          addPlayer(self, players[id]);
+          self.addPlayer(self,players[id])
+        }
+        else {
+          self.addOpponent(self,players[id]);
         }
       });
     });
-      
-        
+    this.socket.on('newPlayer', function (playerInfo) {
+      self.addOpponent(self, playerInfo);
+    });
+    this.socket.on('disconnect', function (playerId) {
+      self.opponent.getChildren().forEach(function (opponent) {
+        if (playerId === opponent.playerId) {
+          opponent.destroy();
+        }
+      });
+    });
+
 
 
 
@@ -108,28 +134,7 @@ class GameScene extends Phaser.Scene{
   });
 
     this.add.image(0,0,"bg").setOrigin(0,0);
-    // Create the player sprite
-    this.player = this.physics.add.image(250, 450, 'shuttle');
 
-    // Set the origin to the center of the sprite
-    this.player.setOrigin(0.4, 0.5);
-    // Enable collision with the world bounds
-    this.player.setCollideWorldBounds(true);
-
-    // Rotate the sprite to face upwards initially
-    this.player.setRotation(-Math.PI / 2);
-
-    // Adjust player dimensions
-    const newWidth = 40; //  width, adjust based on your sprite's dimensions
-    const newHeight = 55; //  height, adjust based on your sprite's dimensions
-    this.player.body.setSize(newWidth, newHeight, false);
-
-    
-    this.player2 = this.physics.add.image(850, 450, 'shuttle2'); // Adjust position for player 2
-    this.player2.setOrigin(0.5, 0.5);
-    this.player2.setCollideWorldBounds(true);
-    this.player2.body.setSize(newWidth, newHeight, false);
-    this.player2.setRotation(-Math.PI / 2);
     // You may want to adjust the size or the physics properties as you did with the first player
     // Rotate the sprite to face upwards initially
     this.keys2 = {
@@ -154,9 +159,8 @@ class GameScene extends Phaser.Scene{
     this.updateHealthBarPlayer2();
 
     // If you need to adjust the physics body's offset
-    const offsetX = 0; // Adjust as necessary
-    const offsetY = 0; // Adjust as necessary
-    this.player.body.setOffset(offsetX, offsetY);
+
+
 
 
     // For Player 1's HP Label
@@ -176,77 +180,77 @@ class GameScene extends Phaser.Scene{
 
     this.cursor=this.input.keyboard.createCursorKeys()
 
-    this.createAsteroids();
+    // this.createAsteroids();
 
     this.bullets = this.physics.add.group({
       defaultKey: 'missile',
   });
 
   // Schedule asteroids to spawn every 1 second
-    this.time.addEvent({
-    delay: 1000,
-    callback: this.createAsteroid,
-    callbackScope: this,
-    loop: true
-    });
+//     this.time.addEvent({
+//     delay: 1000,
+//     callback: this.createAsteroid,
+//     callbackScope: this,
+//     loop: true
+//     });
 
-    this.physics.add.collider(this.player, this.asteroids, (player, asteroid) => {
-      this.takeDamage(player, 20); // Pass 'player' to indicate which player should take damage
-      asteroid.destroy();
-  });
+//     this.physics.add.collider(this.player, this.asteroids, (player, asteroid) => {
+//       this.takeDamage(player, 20); // Pass 'player' to indicate which player should take damage
+//       asteroid.destroy();
+//   });
   
 
-  this.physics.add.collider(this.player2, this.asteroids, (player2, asteroid) => {
-    this.takeDamage(player2, 20); // Use the same takeDamage method for player2
-    asteroid.destroy(); // Destroy the asteroid
-});
+//   this.physics.add.collider(this.player2, this.asteroids, (player2, asteroid) => {
+//     this.takeDamage(player2, 20); // Use the same takeDamage method for player2
+//     asteroid.destroy(); // Destroy the asteroid
+// });
 
-  // Shoot with spacebar
+//   // Shoot with spacebar
   this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-    // After creating bullets and asteroids
-    this.physics.add.collider(this.bullets, this.asteroids, (bullet, asteroid) => {
-      bullet.destroy(); // Correctly destroy the bullet
-      asteroid.destroy(); // Correctly destroy the asteroid
-      this.score += 1; // Increment the score
-      this.scoreText.setText('Score: ' + this.score); // Update the score display
-        // Play the explosion sound effect
-      this.sound.play('explosionSound');
-  });
+//     // After creating bullets and asteroids
+//     this.physics.add.collider(this.bullets, this.asteroids, (bullet, asteroid) => {
+//       bullet.destroy(); // Correctly destroy the bullet
+//       asteroid.destroy(); // Correctly destroy the asteroid
+//       this.score += 1; // Increment the score
+//       this.scoreText.setText('Score: ' + this.score); // Update the score display
+//         // Play the explosion sound effect
+//       this.sound.play('explosionSound');
+//   });
 
-    // Collision detection for bullets hitting players
-    this.physics.add.overlap(this.bullets, [this.player, this.player2], (player, bullet) => {
-    if ((player === this.player && bullet.shooter === 'player2') || (player === this.player2 && bullet.shooter === 'player1')) {
-        bullet.destroy(); // Destroy the bullet
-        this.takeDamage(player, 20); // Assume a takeDamage method that applies damage to the player
-    }
-  });
+//     // Collision detection for bullets hitting players
+//     this.physics.add.overlap(this.bullets, [this.player, this.player2], (player, bullet) => {
+//     if ((player === this.player && bullet.shooter === 'player2') || (player === this.player2 && bullet.shooter === 'player1')) {
+//         bullet.destroy(); // Destroy the bullet
+//         this.takeDamage(player, 20); // Assume a takeDamage method that applies damage to the player
+//     }
+//   });
 
 
-    // Create a group for health packs
-    this.healthPacks = this.physics.add.group();
+//     // Create a group for health packs
+//     this.healthPacks = this.physics.add.group();
 
-    // Setup collision detection for the group
-    this.physics.add.overlap(this.player, this.healthPacks, (player, healthPack) => {
-      this.healPlayer(20); // Adjust the amount as needed
-      healthPack.destroy(); // Remove the health pack after pickup
-      // Play the healing sound effect
-      this.sound.play('healSound');
-   });
+//     // Setup collision detection for the group
+//     this.physics.add.overlap(this.player, this.healthPacks, (player, healthPack) => {
+//       this.healPlayer(20); // Adjust the amount as needed
+//       healthPack.destroy(); // Remove the health pack after pickup
+//       // Play the healing sound effect
+//       this.sound.play('healSound');
+//    });
 
-   this.physics.add.overlap(this.player2, this.healthPacks, (player2, healthPack) => {
-    this.healPlayer2(20); // Implement this method to handle healing player2
-    healthPack.destroy(); // Remove the health pack from the game
-    this.sound.play('healSound');
+//    this.physics.add.overlap(this.player2, this.healthPacks, (player2, healthPack) => {
+//     this.healPlayer2(20); // Implement this method to handle healing player2
+//     healthPack.destroy(); // Remove the health pack from the game
+//     this.sound.play('healSound');
     
-  });
+//   });
 
-    this.time.addEvent({
-      delay: 10000, // 10000 milliseconds = 10 seconds
-      callback: this.createHealthPack,
-      callbackScope: this,
-      loop: true
-  });
+//     this.time.addEvent({
+//       delay: 10000, // 10000 milliseconds = 10 seconds
+//       callback: this.createHealthPack,
+//       callbackScope: this,
+//       loop: true
+//   });
 
 
   // socket.on('player1Moved', function (movementData) {
@@ -271,27 +275,33 @@ class GameScene extends Phaser.Scene{
   
 update() {
   
-  //Player 1 controls 
   
-  this.player.setAngularVelocity(0); // Stop any rotation by default
+  //Player 1 controls 
+  if (this.player) {
+    this.player.setAngularVelocity(0); // Stop any rotation by default
 
-  // Rotation
-  if (this.cursor.left.isDown) {
-      this.player.setAngularVelocity(-250); // Rotate left
-  } else if (this.cursor.right.isDown) {
-      this.player.setAngularVelocity(250); // Rotate right
-  }
+    // Rotation
+    if (this.cursor.left.isDown) {
+        this.player.setAngularVelocity(-250); // Rotate left
+    } else if (this.cursor.right.isDown) {
+        this.player.setAngularVelocity(250); // Rotate right
+    }
 
-  // Forward movement
-  if (this.cursor.up.isDown) {
-      this.physics.velocityFromRotation(this.player.rotation, this.playerSpeed, this.player.body.velocity);
-  } else if (this.cursor.down.isDown) {
-      // Optional: Implement backward movement if desired
-      this.physics.velocityFromRotation(this.player.rotation, -this.playerSpeed / 2, this.player.body.velocity);
-  } else {
-      if (!this.cursor.left.isDown && !this.cursor.right.isDown) {
-          this.player.setVelocity(0); // Stop moving when no input is detected
+    // Forward movement
+    if (this.cursor.up.isDown) {
+        this.physics.velocityFromRotation(this.player.rotation, this.playerSpeed, this.player.body.velocity);
+    } else if (this.cursor.down.isDown) {
+        // Optional: Implement backward movement if desired
+        this.physics.velocityFromRotation(this.player.rotation, -this.playerSpeed / 2, this.player.body.velocity);
+    } else {
+        if (!this.cursor.left.isDown && !this.cursor.right.isDown) {
+            this.player.setVelocity(0); // Stop moving when no input is detected
+        }
       }
+
+    if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
+      this.shootBullet(this.player); // Pass this.player as the argument
+    }
   }
 
   // var p1X = this.player.x;
@@ -302,49 +312,83 @@ update() {
   // }
 
   // save old position data
-  this.player.oldPosition = {
-  x: this.player.x,
-  y: this.player.y,
-  rotation: this.player.rotation
-};
+//   this.player.oldPosition = {
+//   x: this.player.x,
+//   y: this.player.y,
+//   rotation: this.player.rotation
+// };
 
 
 
 
   
   // Shooting
+if (this.player2) {
+  // Player 2 rotation and movement
+  if (this.keys2.left.isDown) {
+    this.player2.setAngularVelocity(-250);
+  } else if (this.keys2.right.isDown) {
+    this.player2.setAngularVelocity(250);
+  } else {
+    this.player2.setAngularVelocity(0);
+  }
 
-if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
-  this.shootBullet(this.player); // Pass this.player as the argument
-}
+  if (this.keys2.up.isDown) {
+    this.physics.velocityFromRotation(this.player2.rotation, this.playerSpeed, this.player2.body.velocity);
+  } else if (this.keys2.down.isDown) {
+    this.physics.velocityFromRotation(this.player2.rotation, -this.playerSpeed / 2, this.player2.body.velocity);
+  } else {
+    if (!this.keys2.left.isDown && !this.keys2.right.isDown) {
+        this.player2.setVelocity(0);
+    }
+  }
 
-
-// Player 2 rotation and movement
-if (this.keys2.left.isDown) {
-  this.player2.setAngularVelocity(-250);
-} else if (this.keys2.right.isDown) {
-  this.player2.setAngularVelocity(250);
-} else {
-  this.player2.setAngularVelocity(0);
-}
-
-if (this.keys2.up.isDown) {
-  this.physics.velocityFromRotation(this.player2.rotation, this.playerSpeed, this.player2.body.velocity);
-} else if (this.keys2.down.isDown) {
-  this.physics.velocityFromRotation(this.player2.rotation, -this.playerSpeed / 2, this.player2.body.velocity);
-} else {
-  if (!this.keys2.left.isDown && !this.keys2.right.isDown) {
-      this.player2.setVelocity(0);
+  // Shooting for player 2
+  if (Phaser.Input.Keyboard.JustDown(this.keys2.shoot)) {
+    this.shootBullet(this.player2);
   }
 }
 
-// Shooting for player 2
-if (Phaser.Input.Keyboard.JustDown(this.keys2.shoot)) {
-  this.shootBullet(this.player2);
 }
 
+// Make separate functions for player 1 and 2
+addPlayer(self, playerInfo) {
+  self.player = this.physics.add.image(250, 450, 'shuttle');
+    // Set the origin to the center of the sprite
+  self.player.setOrigin(0.4, 0.5);
+    // Enable collision with the world bounds
+  self.player.setCollideWorldBounds(true);
+    // Rotate the sprite to face upwards initially
+  self.player.setRotation(-Math.PI / 2);
+   // Adjust player dimensions
+  self.player.body.setSize(newWidth, newHeight, false);
+  self.player.body.setOffset(offsetX, offsetY);
+ }
 
-}
+ addOpponent(self,playerInfo) {
+  const opponent = this.physics.add.image(250, 450, 'shuttle');
+  opponent.setTint(0xff0000);
+      // Enable collision with the world bounds
+  opponent.setCollideWorldBounds(true);
+    // Rotate the sprite to face upwards initially
+  opponent.setRotation(-Math.PI / 2);
+   // Adjust player dimensions
+  opponent.body.setSize(newWidth, newHeight, false);
+  opponent.body.setOffset(offsetX, offsetY);
+  opponent.playerId=playerInfo.playerId;
+  self.opponent.add(opponent);
+
+ }
+
+// addPlayer2(self, playerInfo) {
+//   self.player2 = this.physics.add.image(850, 450, 'shuttle2'); // Adjust position for player 2
+//   self.player2.setOrigin(0.5, 0.5);
+//   self.player2.setCollideWorldBounds(true);
+//   self.player2.body.setSize(newWidth, newHeight, false);
+//   self.player2.setRotation(-Math.PI / 2);
+//   self.playe2.body.setOffset(offsetX, offsetY);
+// }
+
 
 healPlayer(amount) {
   this.playerHealth += amount;
