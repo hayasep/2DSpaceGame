@@ -17,25 +17,7 @@ const newHeight = 55; //  height, adjust based on your sprite's dimensions
 const offsetX = 0; // Adjust as necessary
 const offsetY = 0; // Adjust as necessary
 
-// const isPlayer1 = false;
-// const isPlayer2 = false;
 
-
-// socket.on('connect', function(){
-//   console.log('Connected to server')
-// })
-
-// // Establish Player 1 if client is first to connect to server
-// socket.on('isPlayer1', function (){
-//   self.isPlayer1 = true;
-//   console.log('Player 1 has joined')
-// })
-
-// // Establish Player 2 if client is second to connect to server
-// socket.on('isPlayer2', function (){
-//   self.isPlayer2 = true;
-//   console.log('Player 2 has joined')
-// })
 
 class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -43,16 +25,6 @@ class MainMenuScene extends Phaser.Scene {
   }
 
   create() {
-
-    // socket.on('currentPlayers', function (players) {
-    //   Object.keys(players).forEach(function (id) {
-    //     if (players[id].playerId === self.socket.id) {
-    //       addPlayer(self,players[id]);
-    //     }
-    //   });
-    // });
-
-
 
       // Add menu text
       let titleText = this.add.text(this.cameras.main.centerX, 150, 'HTML 5 Multiplayer 2D Space Arcade Game', { fontSize: '32px', fill: '#fff' }).setOrigin(0.5);
@@ -95,9 +67,9 @@ class GameScene extends Phaser.Scene{
 
 
   create(){
-    var self = this;
+    var self = this;    
     this.socket = io('http://localhost:3000', {transports: transportOptions});
-    this.opponent = this.physics.add.group()
+    this.opponents = this.physics.add.group()
     this.socket.on('currentPlayers', function (players) {
       // console.log('Creating player');
       // var index = players.indexOf(socket.id);
@@ -106,21 +78,31 @@ class GameScene extends Phaser.Scene{
           self.addPlayer(self,players[id])
         }
         else {
-          self.addOpponent(self,players[id]);
+          self.addOpponents(self,players[id]);
         }
       });
     });
     this.socket.on('newPlayer', function (playerInfo) {
-      self.addOpponent(self, playerInfo);
+      self.addOpponents(self, playerInfo);
     });
     this.socket.on('disconnect', function (playerId) {
-      self.opponent.getChildren().forEach(function (opponent) {
+      self.opponents.getChildren().forEach(function (opponent) {
         if (playerId === opponent.playerId) {
           opponent.destroy();
         }
       });
     });
 
+
+    this.socket.on('playerMoved', function (playerInfo) {
+      self.opponents.getChildren().forEach(function (opponent) {
+        if (playerInfo.playerId === opponent.playerId) {
+          opponent.setRotation(playerInfo.rotation);
+          opponent.setPosition(playerInfo.x, playerInfo.y);
+        }
+      });
+    });
+  
 
 
 
@@ -134,18 +116,6 @@ class GameScene extends Phaser.Scene{
   });
 
     this.add.image(0,0,"bg").setOrigin(0,0);
-
-    // You may want to adjust the size or the physics properties as you did with the first player
-    // Rotate the sprite to face upwards initially
-    this.keys2 = {
-      up: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-      left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      down: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-      right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-      shoot: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F) // Assuming F is for shooting
-    };
-   
-
 
     // Correct placement: Initialize healthBar Graphics object before updating it
     this.healthBar = this.add.graphics();
@@ -178,13 +148,17 @@ class GameScene extends Phaser.Scene{
     this.scene.start('MainMenuScene');
     });
 
-    this.cursor=this.input.keyboard.createCursorKeys()
+    this.cursor=this.input.keyboard.createCursorKeys();
+    this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
 
     // this.createAsteroids();
 
     this.bullets = this.physics.add.group({
       defaultKey: 'missile',
   });
+
+
 
   // Schedule asteroids to spawn every 1 second
 //     this.time.addEvent({
@@ -206,7 +180,6 @@ class GameScene extends Phaser.Scene{
 // });
 
 //   // Shoot with spacebar
-  this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
 //     // After creating bullets and asteroids
 //     this.physics.add.collider(this.bullets, this.asteroids, (bullet, asteroid) => {
@@ -253,23 +226,7 @@ class GameScene extends Phaser.Scene{
 //   });
 
 
-  // socket.on('player1Moved', function (movementData) {
-  //   this.player.setRotation(movementData.p1R)
-  //   this.player.x(movementData.p1X)
-  //   this.player.y(movementData.p1Y)
-  // });
-  
 
-  // this.socket.on('player1Moved', function (playerInfo) {
-  //   self.otherPlayers.getChildren().forEach(function (otherPlayer) {
-  //     if (playerInfo.playerId === otherPlayer.playerId) {
-  //       otherPlayer.setRotation(playerInfo.rotation);
-  //       otherPlayer.setPosition(playerInfo.x, playerInfo.y);
-  //     }
-  //   });
-  // });
-  
-  
 }
 
   
@@ -302,58 +259,26 @@ update() {
     if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
       this.shootBullet(this.player); // Pass this.player as the argument
     }
-  }
 
-  // var p1X = this.player.x;
-  // var p1Y = this.player.y;
-  // var p1R = this.player.rotation;
-  // if (this.player.oldPosition && (p1X !== this.player.oldPosition.X || p1Y !== this.player.oldPosition.Y || p1R !== this.player.oldPosition.rotation)) {
-  //   this.socket.emit('player1Movement', { p1X: this.player.x, p1Y: this.player.y, p1R: this.player.rotation });
-  // }
-
-  // save old position data
-//   this.player.oldPosition = {
-//   x: this.player.x,
-//   y: this.player.y,
-//   rotation: this.player.rotation
-// };
-
-
-
-
-  
-  // Shooting
-if (this.player2) {
-  // Player 2 rotation and movement
-  if (this.keys2.left.isDown) {
-    this.player2.setAngularVelocity(-250);
-  } else if (this.keys2.right.isDown) {
-    this.player2.setAngularVelocity(250);
-  } else {
-    this.player2.setAngularVelocity(0);
-  }
-
-  if (this.keys2.up.isDown) {
-    this.physics.velocityFromRotation(this.player2.rotation, this.playerSpeed, this.player2.body.velocity);
-  } else if (this.keys2.down.isDown) {
-    this.physics.velocityFromRotation(this.player2.rotation, -this.playerSpeed / 2, this.player2.body.velocity);
-  } else {
-    if (!this.keys2.left.isDown && !this.keys2.right.isDown) {
-        this.player2.setVelocity(0);
+    // update player movement
+    var x = this.player.x;
+    var y = this.player.y;
+    var r = this.player.rotation;
+    if (this.player.oldPosition && (x !== this.player.oldPosition.X || y !== this.player.oldPosition.Y || r !== this.player.oldPosition.rotation)) {
+      this.socket.emit('playerMovement', { x: this.player.x, y: this.player.y, rotation: this.player.rotation });
     }
-  }
 
-  // Shooting for player 2
-  if (Phaser.Input.Keyboard.JustDown(this.keys2.shoot)) {
-    this.shootBullet(this.player2);
-  }
+    //  save position
+    this.player.oldPosition = {
+    x: this.player.x,
+    y: this.player.y,
+    rotation: this.player.rotation
+  };
+  };
 }
 
-}
-
-// Make separate functions for player 1 and 2
 addPlayer(self, playerInfo) {
-  self.player = this.physics.add.image(250, 450, 'shuttle');
+  self.player = this.physics.add.image(playerInfo.x, playerInfo.y, 'shuttle');
     // Set the origin to the center of the sprite
   self.player.setOrigin(0.4, 0.5);
     // Enable collision with the world bounds
@@ -365,8 +290,8 @@ addPlayer(self, playerInfo) {
   self.player.body.setOffset(offsetX, offsetY);
  }
 
- addOpponent(self,playerInfo) {
-  const opponent = this.physics.add.image(250, 450, 'shuttle');
+ addOpponents(self,playerInfo) {
+  const opponent = this.physics.add.image(playerInfo.x, playerInfo.y, 'shuttle');
   opponent.setTint(0xff0000);
       // Enable collision with the world bounds
   opponent.setCollideWorldBounds(true);
@@ -376,18 +301,9 @@ addPlayer(self, playerInfo) {
   opponent.body.setSize(newWidth, newHeight, false);
   opponent.body.setOffset(offsetX, offsetY);
   opponent.playerId=playerInfo.playerId;
-  self.opponent.add(opponent);
+  self.opponents.add(opponent);
 
  }
-
-// addPlayer2(self, playerInfo) {
-//   self.player2 = this.physics.add.image(850, 450, 'shuttle2'); // Adjust position for player 2
-//   self.player2.setOrigin(0.5, 0.5);
-//   self.player2.setCollideWorldBounds(true);
-//   self.player2.body.setSize(newWidth, newHeight, false);
-//   self.player2.setRotation(-Math.PI / 2);
-//   self.playe2.body.setOffset(offsetX, offsetY);
-// }
 
 
 healPlayer(amount) {
