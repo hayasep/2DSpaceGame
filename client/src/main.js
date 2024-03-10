@@ -46,9 +46,10 @@ class GameScene extends Phaser.Scene{
     this.player
     this.cursor
     this.playerSpeed=speedDown+50
-    this.score = 0; // Initialize score
-    this.scoreText; // For displaying the score
+    // this.score = 0; // Initialize score
+    // this.playerScoreText; // For displaying the score
     this.playerHealth = 100; // Starting health
+    this.opponentHealth = 100;
 
   }
 
@@ -68,11 +69,20 @@ class GameScene extends Phaser.Scene{
 
   create(){
     var self = this;    
+
+    // Connect to host
     this.socket = io('http://localhost:3000', {transports: transportOptions});
+    
+    // Create physics group for opponents
     this.opponents = this.physics.add.group()
+
+    // Create asteroid group
+    this.asteroids = this.physics.add.group();
+
+
+    // Add a player when a connection to server is estabilshed. The socket id on the client side is checked against the socket id received on the server side 
+    // to establish if the new player is the current user or an opponent.
     this.socket.on('currentPlayers', function (players) {
-      // console.log('Creating player');
-      // var index = players.indexOf(socket.id);
       Object.keys(players).forEach(function (id) {
         if (players[id].playerId === self.socket.id) {
           self.addPlayer(self,players[id])
@@ -93,7 +103,7 @@ class GameScene extends Phaser.Scene{
       });
     });
 
-
+    // Update opponent position
     this.socket.on('playerMoved', function (playerInfo) {
       self.opponents.getChildren().forEach(function (opponent) {
         if (playerInfo.playerId === opponent.playerId) {
@@ -104,10 +114,10 @@ class GameScene extends Phaser.Scene{
     });
   
 
-
-
+    // Add background music
     this.backgroundMusic = this.sound.add('backgroundMusic', { volume: 0.5, loop: true });
     this.backgroundMusic.play();   
+
     // Listen for the shutdown event
     this.events.on('shutdown', () => {
       if (this.backgroundMusic && this.backgroundMusic.isPlaying) {
@@ -115,33 +125,34 @@ class GameScene extends Phaser.Scene{
       }
   });
 
+    // Add background
     this.add.image(0,0,"bg").setOrigin(0,0);
 
-    // Correct placement: Initialize healthBar Graphics object before updating it
-    this.healthBar = this.add.graphics();
-
-    //reset player health and update the health bar
-    this.playerHealth = 100;
-    this.updateHealthBar(); 
-
-    this.player2Health = 100; // Starting health for player2
-    this.healthBarPlayer2 = this.add.graphics();
-    this.updateHealthBarPlayer2();
-
-    // If you need to adjust the physics body's offset
-
-
-
-
-    // For Player 1's HP Label
-    this.labelPlayer1HP = this.add.text(this.cameras.main.width - 220, 2, "Player 1's HP", { fontSize: '16px', fill: '#FFFFFF' });
-
-    // For Player 2's HP Label, placed below Player 1's health bar
-    this.labelPlayer2HP = this.add.text(this.cameras.main.width - 220, 31, "Player 2's HP", { fontSize: '16px', fill: '#FFFFFF' });
 
     // Display the score
-    this.scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#FFF' });
+    this.playerScoreText = this.add.text(16, 16, 'You: 0', { fontSize: '32px', fill: '#FFF' });
+    this.opponentScoreText = this.add.text(16, 70, 'Opponent: 0', { fontSize: '32px', fill: '#FF0000' });
 
+
+    // Update the score when an asteroid is hit
+    this.socket.on('scoreUpdate', function (playerInfo){
+      self.playerScore.setText('You: ' + playerInfo.score);
+      self.opponentScoreText.setText('Opponent: ' + opponents.getFirst().playerInfo.score);
+    });
+
+
+    // Initialize player's HP Label
+    this.playerHealthBar = this.add.graphics();
+    this.labelPlayerHP = this.add.text(this.cameras.main.width - 220, 2, "Your HP", { fontSize: '16px', fill: '#FFFFFF' });
+    this.updatePlayerHealthBar(this.playerHealth)
+
+
+    // Initialize opponent's HP Label, placed below players health bar
+    this.opponentHealthBar = this.add.graphics();
+    this.labelOpponentHP = this.add.text(this.cameras.main.width - 220, 31, "Opponent's HP", { fontSize: '16px', fill: '#FFFFFF' });
+    this.updateOpponentHealthBar(this.playerHealth)
+
+    // TODO: Add function to update health bar
 
     // Listen for the Escape key to return to the main menu
     this.input.keyboard.on('keydown-ESC', () => {
@@ -152,7 +163,9 @@ class GameScene extends Phaser.Scene{
     this.shootKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
 
-    // this.createAsteroids();
+    this.socket.on('createAsteroid', function (asteroidInfo) {
+      self.createAsteroid(self,asteroidInfo)
+    });
 
     this.bullets = this.physics.add.group({
       defaultKey: 'missile',
@@ -233,7 +246,7 @@ class GameScene extends Phaser.Scene{
 update() {
   
   
-  //Player 1 controls 
+  //Player  controls 
   if (this.player) {
     this.player.setAngularVelocity(0); // Stop any rotation by default
 
@@ -260,7 +273,7 @@ update() {
       this.shootBullet(this.player); // Pass this.player as the argument
     }
 
-    // update player movement
+    // Send updated player position to server when movement is detected
     var x = this.player.x;
     var y = this.player.y;
     var r = this.player.rotation;
@@ -268,7 +281,7 @@ update() {
       this.socket.emit('playerMovement', { x: this.player.x, y: this.player.y, rotation: this.player.rotation });
     }
 
-    //  save position
+    // Save current position. This is used to check if a player had moved, and an update needs to be sent to the server
     this.player.oldPosition = {
     x: this.player.x,
     y: this.player.y,
@@ -278,6 +291,7 @@ update() {
 }
 
 addPlayer(self, playerInfo) {
+  // Add user controller player
   self.player = this.physics.add.image(playerInfo.x, playerInfo.y, 'shuttle');
     // Set the origin to the center of the sprite
   self.player.setOrigin(0.4, 0.5);
@@ -290,7 +304,8 @@ addPlayer(self, playerInfo) {
   self.player.body.setOffset(offsetX, offsetY);
  }
 
- addOpponents(self,playerInfo) {
+addOpponents(self,playerInfo) {
+  // Add opposing players
   const opponent = this.physics.add.image(playerInfo.x, playerInfo.y, 'shuttle');
   opponent.setTint(0xff0000);
       // Enable collision with the world bounds
@@ -305,17 +320,28 @@ addPlayer(self, playerInfo) {
 
  }
 
+createAsteroid(self, asteroidInfo) {
+  const asteroid = self.physics.add.image(asteroidInfo.x, asteroidInfo.y, 'asteroid');
+  self.asteroids.add(asteroid);
+  if (asteroid){
+    asteroid.setVelocity(asteroidInfo.velocityX,asteroidInfo.velocityY);
+    asteroid.setCollideWorldBounds(true);
+    asteroid.setBounce(1,1);
+  }
+}
+
+
 
 healPlayer(amount) {
   this.playerHealth += amount;
   this.playerHealth = Phaser.Math.Clamp(this.playerHealth, 0, 100); // Ensure health doesn't exceed 100
-  this.updateHealthBar(); // Assuming you have a method to update the health bar
+  this.updatePlayerHealthBar(); // Assuming you have a method to update the health bar
 }
 
 healPlayer2(amount) {
   this.player2Health += amount;
   this.player2Health = Phaser.Math.Clamp(this.player2Health, 0, 100); // Ensure health doesn't exceed 100
-  this.updateHealthBarPlayer2(); // Update the health bar for player2
+  this.updateOpponentHealthBar(); // Update the health bar for player2
 }
 
 createHealthPack() {
@@ -327,20 +353,21 @@ createHealthPack() {
   healthPack.body.setAllowGravity(false); // If needed
 }
 
-updateHealthBar() {
-  this.healthBar.clear(); // Clear the old drawing
-  this.healthBar.fillStyle(0x00ff00, 1); // Set the color of the health bar
+updatePlayerHealthBar(playerHealth) {
+  this.playerHealthBar.clear(); // Clear the old drawing
+  this.playerHealthBar.fillStyle(0x00ff00, 1); // Set the color of the health bar
 
   // Calculate the width of the health bar based on the player's current health
-  const healthPercentage = this.playerHealth / 100;
+  const healthPercentage = playerHealth / 100;
   const healthBarWidth = 200 * healthPercentage; // 200 is the max width of the health bar
 
   // Draw the health bar
-  this.healthBar.fillRect(this.cameras.main.width - 220, 16, healthBarWidth, 16);
+  this.playerHealthBar.fillRect(this.cameras.main.width - 220, 16, healthBarWidth, 16);
+
 }
 
-updateHealthBarPlayer2() {
-  this.healthBarPlayer2.clear();
+updateOpponentHealthBar(opponentHealth) {
+  this.opponentHealthBar.clear();
 
 
   const baseX = this.cameras.main.width - 220; // Position based on the screen width
@@ -349,16 +376,16 @@ updateHealthBarPlayer2() {
   const healthBarHeight = 16; // The height of the health bar
 
   // Calculate Y position for player2's health bar to be below player1's
-  const player2HealthBarY = baseY + healthBarHeight + spacing;
+  const opponentHealthBarY = baseY + healthBarHeight + spacing;
 
   // Draw the background for player2's health bar
-  this.healthBarPlayer2.fillStyle(0x000000); // Black color for the background
-  this.healthBarPlayer2.fillRect(baseX, player2HealthBarY, 200, healthBarHeight);
+  this.opponentHealthBar.fillStyle(0x000000); // Black color for the background
+  this.opponentHealthBar.fillRect(baseX, opponentHealthBarY, 200, healthBarHeight);
 
   // Draw the health fill for player2's health bar
-  this.healthBarPlayer2.fillStyle(0x00ff00); // Green color for the health
-  const fillWidth = Phaser.Math.Clamp(this.player2Health, 0, 100) * 2; // Convert health to fill width
-  this.healthBarPlayer2.fillRect(baseX, player2HealthBarY, fillWidth, healthBarHeight);
+  this.opponentHealthBar.fillStyle(0x00ff00); // Green color for the health
+  const fillWidth = Phaser.Math.Clamp(opponentHealth, 0, 100) * 2; // Convert health to fill width
+  this.opponentHealthBar.fillRect(baseX, opponentHealthBarY, fillWidth, healthBarHeight);
 }
 
 
@@ -367,14 +394,14 @@ takeDamage(player, amount) {
   // Apply damage to the appropriate player
   if (player === this.player) {
       this.playerHealth -= amount;
-      this.updateHealthBar(); // Update player1's health bar
+      this.updatePlayerHealthBar(); // Update player1's health bar
       if (this.playerHealth <= 0) {
           console.log("Player 1 has been defeated!");
           this.playerDefeated('Player 1');
       }
   } else if (player === this.player2) {
       this.player2Health -= amount;
-      this.updateHealthBarPlayer2(); // Update player2's health bar
+      this.updateOpponentHealthBar(); // Update player2's health bar
       if (this.player2Health <= 0) {
           console.log("Player 2 has been defeated!");
           this.playerDefeated('Player 2');
@@ -383,18 +410,6 @@ takeDamage(player, amount) {
 }
 
 
-
-createAsteroid() {
-  const x = Phaser.Math.Between(0, this.sys.game.config.width);
-  const y = -50;
-  // Ensure the asteroid is added to the 'asteroids' group
-  const asteroid = this.asteroids.create(x, y, 'asteroid');
-  if (asteroid) {
-      asteroid.setVelocity(Phaser.Math.Between(-50, 50), Phaser.Math.Between(50, 150));
-      asteroid.setCollideWorldBounds(true);
-      asteroid.setBounce(1, 1);
-  }
-}
 
 createAsteroids() {
   this.asteroids = this.physics.add.group();

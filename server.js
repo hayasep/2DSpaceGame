@@ -14,6 +14,8 @@ const io = require('socket.io')(server, {
 
 var players = {};
 
+var asteroidCount = 0
+
 // Log user connection/ disconnection
 io.on('connection', function (socket){
     console.log('User connected: ' + socket.id);
@@ -25,7 +27,8 @@ io.on('connection', function (socket){
         x: 400,
         y: 400,
         playerId: socket.id,
-        score: 0
+        score: 0,
+        health: 100
     }
     // players.push(socket.id);
     console.log(players);
@@ -33,6 +36,9 @@ io.on('connection', function (socket){
     socket.emit('currentPlayers', players);
     socket.emit('updateScore',players[socket.id].score);
     socket.broadcast.emit('newPlayer', players[socket.id]);
+
+
+
 
 
 
@@ -53,8 +59,29 @@ io.on('connection', function (socket){
 
     socket.on('asteroidHit', function () {
         players[socket.id].score +=10;
-        io.emnit('updateScore',players[socket.id].score)
+        io.emit('updateScore',players[socket.id].score)
     })
+
+    if (Object.keys(players).length > 1) {
+        // Wait until second player has joined to create asteroids. This ensures that asteroids positions are
+        // common between the two players
+        const intervalId = setInterval(() =>{
+            if (asteroidCount < 5) { // Set limit for number of asteroids in play at time
+                var asteroid = {
+                    x: Math.floor(Math.random()*1200),
+                    y: -50,
+                    velocityX: Math.floor(Math.random()*100) - 50,
+                    velocityY: Math.floor(Math.random()*100) + 50,
+                };
+                io.emit('createAsteroid', asteroid); // Emits create asteriod event to client
+                asteroidCount ++;
+            }
+            else {clearInterval(intervalId)};
+
+
+        },1000) // 1000ms between asteroid creation
+    }
+
 
 
 });
