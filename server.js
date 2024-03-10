@@ -14,7 +14,8 @@ const io = require('socket.io')(server, {
 
 var players = {};
 
-var asteroidCount = 0
+var asteroidCount = 0; // track the number of active asteroids
+var asteroidID = 1; // Create a unique id for each asteroid
 
 // Log user connection/ disconnection
 io.on('connection', function (socket){
@@ -30,8 +31,7 @@ io.on('connection', function (socket){
         score: 0,
         health: 100
     }
-    // players.push(socket.id);
-    console.log(players);
+    // console.log(players);
 
     socket.emit('currentPlayers', players);
     socket.emit('updateScore',players[socket.id].score);
@@ -72,15 +72,22 @@ io.on('connection', function (socket){
                     y: -50,
                     velocityX: Math.floor(Math.random()*100) - 50,
                     velocityY: Math.floor(Math.random()*100) + 50,
+                    id: asteroidID
                 };
                 io.emit('createAsteroid', asteroid); // Emits create asteriod event to client
                 asteroidCount ++;
+                asteroidID ++;
             }
             else {clearInterval(intervalId)};
 
 
         },1000) // 1000ms between asteroid creation
     }
+
+    socket.on('shipAsteroidCollision', function (asteroidID) {
+        console.log('Removing asteroid ' + asteroidID)
+        io.emit('removeAsteroid', asteroidID)
+    })
 
 
 
