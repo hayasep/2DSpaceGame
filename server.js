@@ -16,9 +16,10 @@ var players = {};
 
 var asteroidCount = 0; // track the number of active asteroids
 var asteroidPoints = 10; // Points gained by hitting asteroid
-var asteroidDamage = 10; // HP lost in asteroid collision
+var asteroidDamage = 5; // HP lost in asteroid collision
 var asteroidID = 1; // Create a unique to track asteroids
 var bulletId = 1; // Create unique id to track bullets
+var bulletDamage = 10; // Amoung of damage taken from being hit by bullet
 
 // Log user connection/ disconnection
 io.on('connection', function (socket){
@@ -83,7 +84,7 @@ io.on('connection', function (socket){
 
     socket.on('shipAsteroidCollision', function (playerId, asteroidId) {
 
-        players[playerId].health -= 10
+        players[playerId].health -= asteroidDamage
         var health = players[playerId].health
         // console.log('Removing asteroid ' + asteroidId)
         io.emit('removeAsteroid', asteroidId)
@@ -128,9 +129,17 @@ io.on('connection', function (socket){
 
     })
 
+    socket.on('bulletPlayerCollision', function (shooterId, bulletId, opponentId){
+        players[opponentId].health -= bulletDamage
+        health = players[opponentId].health
+        io.emit('removeBullet', bulletId);
+        io.emit('takeDamage', opponentId, health) 
+    });
+    })
 
 
-});
+
+
 
 // Log server has started
 server.listen(port, function () 

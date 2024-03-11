@@ -138,17 +138,17 @@ class GameScene extends Phaser.Scene{
 
 
     // Display the score
-    this.playerScoreText = this.add.text(16, 16, 'You: 0', { fontSize: '32px', fill: '#FFF' });
-    this.opponentScoreText = this.add.text(16, 70, 'Opponent: 0', { fontSize: '32px', fill: '#FF0000' });
+    this.playerScoreText = this.add.text(16, 16, 'Your score: 0', { fontSize: '24px', fill: '#FFF' });
+    this.opponentScoreText = this.add.text(16, 60, 'Opponent\'s score: 0', { fontSize: '24px', fill: '#FF0000' });
 
 
     // Update the score when an asteroid is hit
     this.socket.on('updateScore', function (playerId, score){
       if (self.player.id === playerId) {
-        self.playerScoreText.setText('You: ' + score);
+        self.playerScoreText.setText('Your score: ' + score);
       }
       else {
-        self.opponentScoreText.setText('Opponent: ' + score);
+        self.opponentScoreText.setText('Opponent\' score: ' + score);
       };
     });
 
@@ -207,13 +207,7 @@ class GameScene extends Phaser.Scene{
 
 
 
-//     // Collision detection for bullets hitting players
-//     this.physics.add.overlap(this.bullets, [this.player, this.player2], (player, bullet) => {
-//     if ((player === this.player && bullet.shooter === 'player2') || (player === this.player2 && bullet.shooter === 'player1')) {
-//         bullet.destroy(); // Destroy the bullet
-//         this.takeDamage(player, 20); // Assume a takeDamage method that applies damage to the player
-//     }
-//   });
+
 
 
 // ----------HEALTH PACK STUFF-------------------
@@ -348,6 +342,9 @@ createAsteroid(self, asteroidInfo) {
     )
   }
 
+
+
+  
 }
 
 removeAsteroid(self, asteroidId) {
@@ -405,10 +402,25 @@ createBullet(self,bulletInfo, bulletId) {
       missile.playerId = bulletInfo.playerId;
       missile.bulletId = bulletId;
       this.sound.play('shootSound');
-      // Emit collision event on collision with asteroid 
+      // Emit event on collision with asteroid 
       self.physics.add.collider(missile, self.asteroids, (missile, asteroids) =>{
-        this.socket.emit('bulletAsteroidCollision', missile.playerId, missile.bulletId, asteroids.id) 
+        this.socket.emit('bulletAsteroidCollision', missile.playerId, missile.bulletId, asteroids.id)
+        this.sound.play('explosionSound'); 
       })
+      // Emit even on cllision with opponent
+      self.physics.add.overlap(missile, self.opponents, (missile, opponents) =>{
+        console.log(opponents)
+        this.socket.emit('bulletPlayerCollision', missile.playerId, missile.bulletId, opponents.playerId)
+        this.sound.play('explosionSound'); 
+      })
+
+  //     // Collision detection for bullets hitting players
+//     this.physics.add.overlap(this.bullets, [this.player, this.player2], (player, bullet) => {
+//     if ((player === this.player && bullet.shooter === 'player2') || (player === this.player2 && bullet.shooter === 'player1')) {
+//         bullet.destroy(); // Destroy the bullet
+//         this.takeDamage(player, 20); // Assume a takeDamage method that applies damage to the player
+//     }
+//   });    
 
   }
 }
