@@ -385,7 +385,7 @@ updateOpponentHealthBar(opponentHealth) {
 }
 
 createBullet(self,bulletInfo, bulletId) {
-  const offset = self.player.displayWidth / 2 ;
+  const offset = self.player.displayWidth ;
   const point = new Phaser.Geom.Point(bulletInfo.x + Math.cos(bulletInfo.rotation), bulletInfo.y + offset * Math.sin(bulletInfo.rotation));
   const missile = self.bullets.create(point.x,point.y, 'missile');
   if (missile) {
@@ -401,8 +401,8 @@ createBullet(self,bulletInfo, bulletId) {
         this.sound.play('explosionSound'); 
       })
       // Emit even on cllision with opponent
-      self.physics.add.overlap(missile, self.opponents, (missile, opponents) =>{
-        console.log(opponents)
+      self.physics.add.collider(missile, self.opponents, (missile, opponents) =>{
+        console.log('hit opponent')
         this.socket.emit('bulletPlayerCollision', missile.playerId, missile.bulletId, opponents.playerId)
         this.sound.play('explosionSound'); 
       })
