@@ -79,6 +79,14 @@ class GameScene extends Phaser.Scene{
     // Create asteroid group
     this.asteroids = this.physics.add.group();
 
+    // Create bullets physics group
+    this.bullets = this.physics.add.group({
+      defaultKey: 'missile',
+    });
+
+
+
+
 
     // Add a player when a connection to server is estabilshed. The socket id on the client side is checked against the socket id received on the server side 
     // to establish if the new player is the current user or an opponent.
@@ -135,9 +143,13 @@ class GameScene extends Phaser.Scene{
 
 
     // Update the score when an asteroid is hit
-    this.socket.on('scoreUpdate', function (playerInfo){
-      self.playerScore.setText('You: ' + playerInfo.score);
-      self.opponentScoreText.setText('Opponent: ' + opponents.getFirst().playerInfo.score);
+    this.socket.on('updateScore', function (playerId, score){
+      if (self.player.id === playerId) {
+        self.playerScoreText.setText('You: ' + score);
+      }
+      else {
+        self.opponentScoreText.setText('Opponent: ' + score);
+      };
     });
 
 
@@ -168,53 +180,32 @@ class GameScene extends Phaser.Scene{
     });
 
 
-    this.socket.on('removeAsteroid', function (asteroidID) {
-      self.removeAsteroid(self,asteroidID);
+    this.socket.on('removeAsteroid', function (asteroidId) {
+      self.removeAsteroid(self,asteroidId);
     });
 
-    this.bullets = this.physics.add.group({
-      defaultKey: 'missile',
-    });
+    this.socket.on('takeDamage', function (playerId, health){
+      if (self.player.id === playerId) {
+        self.updatePlayerHealthBar(health)
+      }
+      else {
+        self.updateOpponentHealthBar(health)
+      }
+    })
 
+    this.socket.on('createBullet', function (bulletInfo, bulletId) {
+      self.createBullet(self,bulletInfo, bulletId);
+    })
 
-
-
-
-
-//     this.physics.add.collider(this.player, this.asteroids, (player, asteroid) => {
-//       this.takeDamage(player, 20); // Pass 'player' to indicate which player should take damage
-//       asteroid.destroy();
-//   });
-  
-
-//   this.physics.add.collider(this.player2, this.asteroids, (player2, asteroid) => {
-//     this.takeDamage(player2, 20); // Use the same takeDamage method for player2
-//     asteroid.destroy(); // Destroy the asteroid
-// });
-
-
-  // Schedule asteroids to spawn every 1 second
-//     this.time.addEvent({
-//     delay: 1000,
-//     callback: this.createAsteroid,
-//     callbackScope: this,
-//     loop: true
-//     });
-
+    this.socket.on('removeBullet', function (bulletId) {
+      self.removeBullet(self, bulletId);
+    })
 
 //-------SHOOTING STUFF---------------------------
 
 //   // Shoot with spacebar
 
-//     // After creating bullets and asteroids
-//     this.physics.add.collider(this.bullets, this.asteroids, (bullet, asteroid) => {
-//       bullet.destroy(); // Correctly destroy the bullet
-//       asteroid.destroy(); // Correctly destroy the asteroid
-//       this.score += 1; // Increment the score
-//       this.scoreText.setText('Score: ' + this.score); // Update the score display
-//         // Play the explosion sound effect
-//       this.sound.play('explosionSound');
-//   });
+
 
 //     // Collision detection for bullets hitting players
 //     this.physics.add.overlap(this.bullets, [this.player, this.player2], (player, bullet) => {
@@ -283,7 +274,8 @@ update() {
       }
 
     if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
-      this.shootBullet(this.player); // Pass this.player as the argument
+      this.socket.emit('shootBullet', {x: this.player.x, y: this.player.y, rotation: this.player.rotation, playerId: this.player.id})
+      // this.shootBullet(this.player); // Pass this.player as the argument
     }
 
     // Send updated player position to server when movement is detected
@@ -315,6 +307,11 @@ addPlayer(self, playerInfo) {
    // Adjust player dimensions
   self.player.body.setSize(newWidth, newHeight, false);
   self.player.body.setOffset(offsetX, offsetY);
+  // Add player id
+  self.player.id = playerInfo.playerId
+  // Initialize health
+  self.player.health = playerInfo.health
+  self.player.score = playerInfo.score
  }
 
 addOpponents(self,playerInfo) {
@@ -329,6 +326,8 @@ addOpponents(self,playerInfo) {
   opponent.body.setSize(newWidth, newHeight, false);
   opponent.body.setOffset(offsetX, offsetY);
   opponent.playerId=playerInfo.playerId;
+  opponent.health = playerInfo.health;
+  // opponent.health=playerInfo,health
   self.opponents.add(opponent);
 
  }
@@ -341,50 +340,23 @@ createAsteroid(self, asteroidInfo) {
     asteroid.setVelocity(asteroidInfo.velocityX,asteroidInfo.velocityY);
     asteroid.setCollideWorldBounds(true);
     asteroid.setBounce(1,1);
+    // Emit collision event on collision with player
     self.physics.add.collider(self.player, asteroid, (player, asteroid) => {
-      this.socket.emit('shipAsteroidCollision',asteroid.id); // Emit event asteroid ID
-      // console.log('Removing asteroid ' + asteroid.id)
+      this.socket.emit('shipAsteroidCollision', player.id, asteroid.id); // Emit event w/ asteroid ID and player ID involved in collision
+      this.sound.play('explosionSound');
     }
     )
   }
 
 }
 
-removeAsteroid(self, asteroidID) {
-  console.log('Removing asteroid')
+removeAsteroid(self, asteroidId) {
+  // console.log('Removing asteroid')
   self.asteroids.getChildren().forEach(function (asteroid) {
-    if (asteroid.id === asteroidID) {
+    if (asteroid.id === asteroidId) {
       asteroid.destroy();
     };
   });
-}
-
-//     this.physics.add.collider(this.player, this.asteroids, (player, asteroid) => {
-//       this.takeDamage(player, 20); // Pass 'player' to indicate which player should take damage
-//       asteroid.destroy();
-//   });
-  
-
-
-healPlayer(amount) {
-  this.playerHealth += amount;
-  this.playerHealth = Phaser.Math.Clamp(this.playerHealth, 0, 100); // Ensure health doesn't exceed 100
-  this.updatePlayerHealthBar(); // Assuming you have a method to update the health bar
-}
-
-healPlayer2(amount) {
-  this.player2Health += amount;
-  this.player2Health = Phaser.Math.Clamp(this.player2Health, 0, 100); // Ensure health doesn't exceed 100
-  this.updateOpponentHealthBar(); // Update the health bar for player2
-}
-
-createHealthPack() {
-  const x = Phaser.Math.Between(0, this.sys.game.config.width);
-  const y = Phaser.Math.Between(0, this.sys.game.config.height);
-  const healthPack = this.healthPacks.create(x, y, 'healthPack');
-
-  healthPack.setInteractive();
-  healthPack.body.setAllowGravity(false); // If needed
 }
 
 updatePlayerHealthBar(playerHealth) {
@@ -422,74 +394,33 @@ updateOpponentHealthBar(opponentHealth) {
   this.opponentHealthBar.fillRect(baseX, opponentHealthBarY, fillWidth, healthBarHeight);
 }
 
+createBullet(self,bulletInfo, bulletId) {
+  const offset = self.player.displayWidth / 2 ;
+  const point = new Phaser.Geom.Point(bulletInfo.x + Math.cos(bulletInfo.rotation), bulletInfo.y + offset * Math.sin(bulletInfo.rotation));
+  const missile = self.bullets.create(point.x,point.y, 'missile');
+  if (missile) {
+    missile.setActive(true).setVisible(true);
+      this.physics.velocityFromRotation(bulletInfo.rotation, 400, missile.body.velocity);
+      missile.rotation = bulletInfo.rotation;
+      missile.playerId = bulletInfo.playerId;
+      missile.bulletId = bulletId;
+      this.sound.play('shootSound');
+      // Emit collision event on collision with asteroid 
+      self.physics.add.collider(missile, self.asteroids, (missile, asteroids) =>{
+        this.socket.emit('bulletAsteroidCollision', missile.playerId, missile.bulletId, asteroids.id) 
+      })
 
-
-takeDamage(player, amount) {
-  // Apply damage to the appropriate player
-  if (player === this.player) {
-      this.playerHealth -= amount;
-      this.updatePlayerHealthBar(); // Update player1's health bar
-      if (this.playerHealth <= 0) {
-          console.log("Player 1 has been defeated!");
-          this.playerDefeated('Player 1');
-      }
-  } else if (player === this.player2) {
-      this.player2Health -= amount;
-      this.updateOpponentHealthBar(); // Update player2's health bar
-      if (this.player2Health <= 0) {
-          console.log("Player 2 has been defeated!");
-          this.playerDefeated('Player 2');
-      }
   }
 }
 
+removeBullet(self, id) {
+  self.bullets.getChildren().forEach(function (bullet){
+    if (bullet.bulletId === id){
+      bullet.destroy()
+    };
+  });
 
-
-// shootBullet(player) {
-//     const angle = player.rotation;
-//     const startPosition = this.getMissileStartPosition(player.x, player.y, angle, player.displayWidth / 2);
-//     let missile = this.bullets.create(startPosition.x, startPosition.y, 'missile');
-//     if (missile) {
-//         missile.setActive(true).setVisible(true);
-//         this.physics.velocityFromRotation(angle, 400, missile.body.velocity);
-//         missile.rotation = angle;
-//         missile.shooter = player === this.player ? 'player1' : 'player2'; // Identify the shooter
-//         this.sound.play('shootSound');
-//     }
-// }
-
-// playerDefeated(defeatedPlayer) {
-//   // Stop the game or any game-specific logic
-//   this.physics.pause();
-//   this.bullets.clear(true, true); // Clear existing bullets
-//   this.asteroids.clear(true, true); // Assuming you want to clear existing asteroids
-
-//   // Display a defeat message
-//   let message = defeatedPlayer + " has been defeated!";
-//   let gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 100, message, { fontSize: '32px', fill: '#ff0000' }).setOrigin(0.5);
-
-
-//   let restartText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'Restart', { fontSize: '24px', fill: '#fff' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-//   restartText.on('pointerdown', () => {
-//       this.scene.restart(); // Restart this scene
-//   });
-
-//   let backToMenuText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY + 50, 'Back to Main Menu', { fontSize: '24px', fill: '#fff' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-//   backToMenuText.on('pointerdown', () => {
-//       this.scene.start('MainMenuScene'); // Go back to the MainMenuScene
-//   });
-// }
-
-
-
-// getMissileStartPosition(x, y, rotation, offset) {
-//   // Calculate the missile's starting position based on player's position, rotation, and an offset
-//   // This offset moves the missile to the front of the player sprite
-//   const point = new Phaser.Geom.Point(x + offset * Math.cos(rotation), y + offset * Math.sin(rotation));
-//   return point;
-// }
+}
 
 }
 

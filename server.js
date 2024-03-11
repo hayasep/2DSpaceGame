@@ -15,7 +15,10 @@ const io = require('socket.io')(server, {
 var players = {};
 
 var asteroidCount = 0; // track the number of active asteroids
-var asteroidID = 1; // Create a unique id for each asteroid
+var asteroidPoints = 10; // Points gained by hitting asteroid
+var asteroidDamage = 10; // HP lost in asteroid collision
+var asteroidID = 1; // Create a unique to track asteroids
+var bulletId = 1; // Create unique id to track bullets
 
 // Log user connection/ disconnection
 io.on('connection', function (socket){
@@ -25,8 +28,8 @@ io.on('connection', function (socket){
 
     players[socket.id] = {
         rotation: 0,
-        x: 400,
-        y: 400,
+        x: 600,
+        y: 600,
         playerId: socket.id,
         score: 0,
         health: 100
@@ -34,19 +37,13 @@ io.on('connection', function (socket){
     // console.log(players);
 
     socket.emit('currentPlayers', players);
-    socket.emit('updateScore',players[socket.id].score);
     socket.broadcast.emit('newPlayer', players[socket.id]);
-
-
-
-
 
 
     socket.on('disconnect', function () {
         console.log('User disconnected: ' + socket.id);
         delete players[socket.id];
         socket.disconnect(socket.id);
-        // players = players.filter(player => player !== socket.id); // Remove socket id from players list
     })
 
     socket.on('playerMovement', function (movementData) {
@@ -84,9 +81,51 @@ io.on('connection', function (socket){
         },1000) // 1000ms between asteroid creation
     }
 
-    socket.on('shipAsteroidCollision', function (asteroidID) {
-        console.log('Removing asteroid ' + asteroidID)
-        io.emit('removeAsteroid', asteroidID)
+    socket.on('shipAsteroidCollision', function (playerId, asteroidId) {
+
+        players[playerId].health -= 10
+        var health = players[playerId].health
+        // console.log('Removing asteroid ' + asteroidId)
+        io.emit('removeAsteroid', asteroidId)
+        // console.log('Player hit: ' + playerId)
+        io.emit('takeDamage', playerId, health)
+
+        // Create new asteroid
+        var asteroid = {
+            x: Math.floor(Math.random()*1200),
+            y: -50,
+            velocityX: Math.floor(Math.random()*100) - 50,
+            velocityY: Math.floor(Math.random()*100) + 50,
+            id: asteroidID
+        };
+        io.emit('createAsteroid', asteroid); // Emits create asteriod event to client
+        asteroidID ++;
+    })
+
+    socket.on('shootBullet', function (bulletInfo){
+        io.emit('createBullet', bulletInfo, bulletId);
+        bulletId ++;
+    })
+
+    socket.on('bulletAsteroidCollision', function (playerId, bulletId, asteroidId)
+    {
+        players[playerId].score += asteroidPoints; // Update player score
+        var score = players[playerId].score
+        io.emit('removeAsteroid', asteroidId);
+        io.emit('removeBullet', bulletId);
+        io.emit('updateScore', playerId, score)
+
+        // Create new asteroid
+        var asteroid = {
+            x: Math.floor(Math.random()*1200),
+            y: -50,
+            velocityX: Math.floor(Math.random()*100) - 50,
+            velocityY: Math.floor(Math.random()*100) + 50,
+            id: asteroidID
+        };
+        io.emit('createAsteroid', asteroid); // Emits create asteriod event to client
+        asteroidID ++;
+
     })
 
 
