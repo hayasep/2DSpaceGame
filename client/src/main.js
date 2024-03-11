@@ -46,10 +46,9 @@ class GameScene extends Phaser.Scene{
     this.player
     this.cursor
     this.playerSpeed=speedDown+50
-    // this.score = 0; // Initialize score
-    // this.playerScoreText; // For displaying the score
     this.playerHealth = 100; // Starting health
     this.opponentHealth = 100;
+    this.targetScore = 100; // Points needed to win game
 
   }
 
@@ -143,18 +142,24 @@ class GameScene extends Phaser.Scene{
     // Display the score
     this.playerScoreText = this.add.text(16, 16, 'Your score: 0', { fontSize: '24px', fill: '#FFF' });
     this.opponentScoreText = this.add.text(16, 60, 'Opponent\'s score: 0', { fontSize: '24px', fill: '#FF0000' });
+    this.targetScoreText = this.add.text(16, 105, 'Target score: ' + this.targetScore, { fontSize: '24px', fill: '#0000FF' });
 
 
     // Update the score when an asteroid is hit
     this.socket.on('updateScore', function (playerId, score){
       if (self.player.id === playerId) {
         self.playerScoreText.setText('Your score: ' + score);
+        if (score >= 100) {
+          self.socket.emit('gameOverScore', playerId)
+        }
       }
       else {
-        self.opponentScoreText.setText('Opponent\' score: ' + score);
+        self.opponentScoreText.setText('Opponent\'s score: ' + score);
+        if (score >= 100) {
+          self.socket.emit('gameOverScore', playerId)
+        }
       };
     });
-
 
     // Initialize player's HP Label
     this.playerHealthBar = this.add.graphics();
@@ -167,7 +172,6 @@ class GameScene extends Phaser.Scene{
     this.labelOpponentHP = this.add.text(this.cameras.main.width - 220, 31, "Opponent's HP", { fontSize: '16px', fill: '#FFFFFF' });
     this.updateOpponentHealthBar(this.playerHealth)
 
-    // TODO: Add function to update health bar
 
     // Listen for the Escape key to return to the main menu
     this.input.keyboard.on('keydown-ESC', () => {
@@ -190,9 +194,16 @@ class GameScene extends Phaser.Scene{
     this.socket.on('updateHealth', function (playerId, health){
       if (self.player.id === playerId) {
         self.updatePlayerHealthBar(health)
+        if (health <=0) {
+          self.socket.emit('gameOverHealth', playerId)
+        }
       }
       else {
         self.updateOpponentHealthBar(health)
+        if (health <=0) {
+          self.socket.emit('gameOverHealth', playerId)
+        }
+        
       }
     })
 
@@ -212,26 +223,13 @@ class GameScene extends Phaser.Scene{
       self.removeHealthPack(self,healthPackId)
     })
 
+    this.socket.on('endGameScore', function(winnerId){
+      self.endGameScore(self,winnerId)
+    })
 
-// ----------HEALTH PACK STUFF-------------------
-
-
-//     // Setup collision detection for the group
-//     this.physics.add.overlap(this.player, this.healthPacks, (player, healthPack) => {
-//       this.healPlayer(20); // Adjust the amount as needed
-//       healthPack.destroy(); // Remove the health pack after pickup
-//       // Play the healing sound effect
-//       this.sound.play('healSound');
-//    });
-
-//    this.physics.add.overlap(this.player2, this.healthPacks, (player2, healthPack) => {
-//     this.healPlayer2(20); // Implement this method to handle healing player2
-//     healthPack.destroy(); // Remove the health pack from the game
-//     this.sound.play('healSound');
-    
-//   });
-
-
+    this.socket.on('endGameHealth', function(loserId){
+      self.endGameHealth(self,loserId)
+    })
 
 }
 
@@ -441,6 +439,39 @@ removeHealthPack(self, healthPackId) {
   });
 }
 
+endGameScore(self,winnerId){
+  this.physics.pause();
+
+  // Clear items from screen
+  this.bullets.clear(true, true); 
+  this.asteroids.clear(true, true);
+  this.healthPacks.clear(true,true);
+
+  // Display message
+  if (self.player.id===winnerId){
+    var gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 100, "Congratulations, you have won!", { fontSize: '32px', fill: '#0000FF' }).setOrigin(0.5);
+  }
+  else {
+    var gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 100, "You have been defeated!", { fontSize: '32px', fill: '#ff0000' }).setOrigin(0.5);
+  };
+}
+
+endGameHealth(self,loserId){
+  this.physics.pause();
+
+  // Clear items from screen
+  this.bullets.clear(true, true); 
+  this.asteroids.clear(true, true);
+  this.healthPacks.clear(true,true);
+
+  // Display message
+  if (self.player.id!==loserId){
+    var gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 100, "Congratulations, you have won!", { fontSize: '32px', fill: '#0000FF' }).setOrigin(0.5);
+  }
+  else {
+    var gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 100, "You have been defeated!", { fontSize: '32px', fill: '#ff0000' }).setOrigin(0.5);
+  };
+}
 
 }
 

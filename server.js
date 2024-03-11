@@ -67,7 +67,7 @@ io.on('connection', function (socket){
         // Wait until second player has joined to create asteroids and health packs. 
         // This ensures that asteroids positions arecommon between the two players
         const intervalId = setInterval(() =>{
-            if (asteroidCount < 5) { // Set limit for number of asteroids in play at time
+            if (asteroidCount < 4) { // Set limit for number of asteroids in play at time
                 var asteroid = {
                     x: Math.floor(Math.random()*1200),
                     y: -50,
@@ -151,7 +151,9 @@ io.on('connection', function (socket){
     })
 
     socket.on('bulletPlayerCollision', function (shooterId, bulletId, opponentId){
-        players[opponentId].health -= bulletDamage;
+        if (shooterId !== opponentId) { // Don't damage health if collision if from user's own bullet
+            players[opponentId].health -= bulletDamage;
+        }
         health = players[opponentId].health;
         io.emit('removeBullet', bulletId);
         io.emit('updateHealth', opponentId, health) 
@@ -164,6 +166,16 @@ io.on('connection', function (socket){
         io.emit('removeHealthPack', healthPackId);
         healthPackCount -= 1;
     });
+
+    socket.on('gameOverScore', function(winnerId){
+        io.emit('endGameScore', winnerId)
+    })
+
+
+    socket.on('gameOverHealth', function(loserId){
+        io.emit('endGameHealth', loserId)
+    })
+
 
     })
     
