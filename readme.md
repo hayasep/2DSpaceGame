@@ -5,6 +5,7 @@
 3. From /client directory, run 'npm start' to launch client
 4. Open client in second browser window to add second player
 5. Game will begin when both players click 'Start Game'
+6. To play again, restart the server and refresh each window
 
 ## Controls
 - Use arrow keys to move
