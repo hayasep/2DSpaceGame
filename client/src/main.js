@@ -84,6 +84,9 @@ class GameScene extends Phaser.Scene{
       defaultKey: 'missile',
     });
 
+    // Create a group for health packs
+    this.healthPacks = this.physics.add.group();
+
 
 
 
@@ -184,7 +187,7 @@ class GameScene extends Phaser.Scene{
       self.removeAsteroid(self,asteroidId);
     });
 
-    this.socket.on('takeDamage', function (playerId, health){
+    this.socket.on('updateHealth', function (playerId, health){
       if (self.player.id === playerId) {
         self.updatePlayerHealthBar(health)
       }
@@ -201,18 +204,17 @@ class GameScene extends Phaser.Scene{
       self.removeBullet(self, bulletId);
     })
 
-//-------SHOOTING STUFF---------------------------
+    this.socket.on('createHealthPack', function (healthPackInfo, healthPackId){
+      self.createHealthPack(self,healthPackInfo, healthPackId)
+    })
 
-//   // Shoot with spacebar
-
-
-
-
+    this.socket.on('removeHealthPack', function (healthPackId){
+      self.removeHealthPack(self,healthPackId)
+    })
 
 
 // ----------HEALTH PACK STUFF-------------------
-//     // Create a group for health packs
-//     this.healthPacks = this.physics.add.group();
+
 
 //     // Setup collision detection for the group
 //     this.physics.add.overlap(this.player, this.healthPacks, (player, healthPack) => {
@@ -227,13 +229,6 @@ class GameScene extends Phaser.Scene{
 //     healthPack.destroy(); // Remove the health pack from the game
 //     this.sound.play('healSound');
     
-//   });
-
-//     this.time.addEvent({
-//       delay: 10000, // 10000 milliseconds = 10 seconds
-//       callback: this.createHealthPack,
-//       callbackScope: this,
-//       loop: true
 //   });
 
 
@@ -413,15 +408,6 @@ createBullet(self,bulletInfo, bulletId) {
         this.socket.emit('bulletPlayerCollision', missile.playerId, missile.bulletId, opponents.playerId)
         this.sound.play('explosionSound'); 
       })
-
-  //     // Collision detection for bullets hitting players
-//     this.physics.add.overlap(this.bullets, [this.player, this.player2], (player, bullet) => {
-//     if ((player === this.player && bullet.shooter === 'player2') || (player === this.player2 && bullet.shooter === 'player1')) {
-//         bullet.destroy(); // Destroy the bullet
-//         this.takeDamage(player, 20); // Assume a takeDamage method that applies damage to the player
-//     }
-//   });    
-
   }
 }
 
@@ -433,6 +419,28 @@ removeBullet(self, id) {
   });
 
 }
+
+createHealthPack(self,healthPackInfo, healthPackId) {
+  const healthPack = self.physics.add.image(healthPackInfo.x, healthPackInfo.y, 'healthPack')
+  healthPack.id = healthPackId;
+  self.healthPacks.add(healthPack);
+  if (healthPack){
+    self.physics.add.overlap(self.player, healthPack, (player, healthPack) => {
+      this.socket.emit('playerHealthPackOverlap', player.id, healthPack.id);
+      this.sound.play('healSound');
+    })
+  }
+}
+
+removeHealthPack(self, healthPackId) {
+  console.log('Removing health pack ' + healthPackId)
+  self.healthPacks.getChildren().forEach(function (healthPack) {
+    if (healthPack.id === healthPackId) {
+      healthPack.destroy();
+    };
+  });
+}
+
 
 }
 

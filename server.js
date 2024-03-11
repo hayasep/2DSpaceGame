@@ -20,6 +20,9 @@ var asteroidDamage = 5; // HP lost in asteroid collision
 var asteroidID = 1; // Create a unique to track asteroids
 var bulletId = 1; // Create unique id to track bullets
 var bulletDamage = 10; // Amoung of damage taken from being hit by bullet
+var healthPackCount = 0; // Track number of health packs
+var healthPackId = 1; // Create unique id for health packs
+var healthPackHealing = 20; // Amount of HP a health pack restores
 
 // Log user connection/ disconnection
 io.on('connection', function (socket){
@@ -61,8 +64,8 @@ io.on('connection', function (socket){
     })
 
     if (Object.keys(players).length > 1) {
-        // Wait until second player has joined to create asteroids. This ensures that asteroids positions are
-        // common between the two players
+        // Wait until second player has joined to create asteroids and health packs. 
+        // This ensures that asteroids positions arecommon between the two players
         const intervalId = setInterval(() =>{
             if (asteroidCount < 5) { // Set limit for number of asteroids in play at time
                 var asteroid = {
@@ -79,8 +82,26 @@ io.on('connection', function (socket){
             else {clearInterval(intervalId)};
 
 
-        },1000) // 1000ms between asteroid creation
+        },1000) // 1s between asteroid creation
+
+
+        const intervalId2 = setInterval(() =>{
+            if (healthPackCount < 2) { // Set limit for number of health packs in play at time
+                var healthPack = {
+                    x: Math.floor(Math.random()*1200),
+                    y: Math.floor(Math.random()*900),
+                    id: healthPackId
+                };
+                io.emit('createHealthPack', healthPack, healthPackId); // Emits create health pack event to client
+                healthPackCount ++;
+                healthPackId ++;
+            }
+            else {clearInterval(intervalId2)};
+
+
+        },10000) // 10s between health pack creation
     }
+
 
     socket.on('shipAsteroidCollision', function (playerId, asteroidId) {
 
@@ -89,7 +110,7 @@ io.on('connection', function (socket){
         // console.log('Removing asteroid ' + asteroidId)
         io.emit('removeAsteroid', asteroidId)
         // console.log('Player hit: ' + playerId)
-        io.emit('takeDamage', playerId, health)
+        io.emit('updateHealth', playerId, health)
 
         // Create new asteroid
         var asteroid = {
@@ -130,12 +151,24 @@ io.on('connection', function (socket){
     })
 
     socket.on('bulletPlayerCollision', function (shooterId, bulletId, opponentId){
-        players[opponentId].health -= bulletDamage
-        health = players[opponentId].health
+        players[opponentId].health -= bulletDamage;
+        health = players[opponentId].health;
         io.emit('removeBullet', bulletId);
-        io.emit('takeDamage', opponentId, health) 
+        io.emit('updateHealth', opponentId, health) 
     });
+
+    socket.on('playerHealthPackOverlap', function (playerId, healthPackId){
+        players[playerId].health = Math.min(players[playerId].health + healthPackHealing, 100); // Add health pack to HP up to max of 100
+        health = players[playerId].health;
+        io.emit('updateHealth', playerId, health);
+        io.emit('removeHealthPack', healthPackId);
+        healthPackCount -= 1;
+    });
+
     })
+    
+
+    
 
 
 
